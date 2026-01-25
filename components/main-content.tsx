@@ -22,10 +22,10 @@ export function MainContent({ leftOpen, rightOpen }: MainContentProps) {
           Welcome to Handl
         </h2>
         <p className="text-lg text-zinc-600 dark:text-zinc-400">
-          A minimalist workspace designed for focus. 
+          A minimalist workspace designed for focus.
           Toggle the sidebars to explore your projects and settings.
         </p>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12">
           <div className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-left space-y-2">
             <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Get Started</h3>
