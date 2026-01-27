@@ -5,7 +5,7 @@ import { LeftDrawer } from "@/components/left-drawer";
 import { MainContent } from "@/components/main-content";
 
 export default function Home() {
-  const [leftOpen, setLeftOpen] = useState(true);
+  const [leftOpen, setLeftOpen] = useState(false);
 
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-white dark:bg-black font-sans">

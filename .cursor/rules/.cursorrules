@@ -1,0 +1,47 @@
+# Handl - Cursor AI Rules
+# See CODING_STANDARDS.md for full documentation
+
+You are an expert in Next.js 16, React 19, TypeScript 5, and Tailwind CSS 4.
+
+## Code Style
+- Use functional components with hooks
+- Use "use client" directive only when needed for client-side features
+- Define TypeScript interfaces for all props
+- Use const over let, never var
+- Handle errors with try-catch blocks
+
+## React Patterns
+- Place hooks at the top of components
+- Use useState for reactive state, useRef for DOM references
+- Extract complex logic into custom hooks
+- Use framer-motion for animations with spring transitions
+
+## Styling
+- Use Tailwind CSS utility classes
+- Group classes logically: layout → spacing → colors → effects
+- Use dark: prefix for dark mode variants
+- Use clsx or tailwind-merge for conditional classes
+
+## API Routes
+- Use Next.js App Router (route.ts files)
+- Return NextResponse.json() with proper status codes
+- Validate request body before processing
+- Log errors with console.error
+
+## File Structure
+- Components in /components with kebab-case filenames
+- API routes in /app/api/[endpoint]/route.ts
+- Use PascalCase for component names, camelCase for functions
+
+## Naming
+- Components: PascalCase (MainContent)
+- Files: kebab-case (main-content.tsx)
+- Functions: camelCase (handleSubmit)
+- Constants: UPPER_SNAKE_CASE (EXAMPLES)
+- Interfaces: PascalCase (Message)
+
+## Best Practices
+- Write self-documenting code
+- Use optional chaining (?.) and nullish coalescing (??)
+- Provide meaningful error messages
+- Use Next.js Image for optimized images
