@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText } from "lucide-react";
 
 interface AnalysisResult {
     responseType?: "task_update" | "conversation";
@@ -20,6 +20,8 @@ interface AnalysisResult {
         phoneNumber: string | null;
         questionsToAsk: string[];
         additionalNotes: string | null;
+        userName?: string | null;
+        callbackNumber?: string | null;
         [key: string]: any;
     };
     missingInfo: Array<{
@@ -201,9 +203,188 @@ function SummaryItem({ label, value }: { label: string, value: any }) {
     );
 }
 
+interface CallState {
+    status: "idle" | "calling" | "in-progress" | "completed" | "failed";
+    callId?: string;
+    error?: string;
+    result?: {
+        transcript?: string;
+        recordingUrl?: string;
+        analysis?: any;
+        endedReason?: string;
+        cost?: number;
+    };
+}
+
+function CallResultsDisplay({ callState }: { callState: CallState }) {
+    if (callState.status === "idle") return null;
+
+    return (
+        <div className="mt-6 space-y-4">
+            {/* Status indicator */}
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800">
+                {callState.status === "calling" && (
+                    <>
+                        <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                        <span className="text-sm text-zinc-600 dark:text-zinc-400">Initiating call...</span>
+                    </>
+                )}
+                {callState.status === "in-progress" && (
+                    <>
+                        <Phone className="w-5 h-5 text-green-500 animate-pulse" />
+                        <span className="text-sm text-zinc-600 dark:text-zinc-400">Call in progress...</span>
+                    </>
+                )}
+                {callState.status === "completed" && (
+                    <>
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <span className="text-sm text-zinc-600 dark:text-zinc-400">Call completed</span>
+                    </>
+                )}
+                {callState.status === "failed" && (
+                    <>
+                        <XCircle className="w-5 h-5 text-red-500" />
+                        <span className="text-sm text-red-600 dark:text-red-400">{callState.error || "Call failed"}</span>
+                    </>
+                )}
+            </div>
+
+            {/* Results */}
+            {callState.status === "completed" && callState.result && (
+                <div className="space-y-4">
+                    {/* Recording */}
+                    {callState.result.recordingUrl && (
+                        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                            <div className="flex items-center gap-2">
+                                <Play className="w-4 h-4 text-zinc-500" />
+                                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Recording</span>
+                            </div>
+                            <audio controls className="w-full" src={callState.result.recordingUrl}>
+                                Your browser does not support the audio element.
+                            </audio>
+                        </div>
+                    )}
+
+                    {/* Transcript */}
+                    {callState.result.transcript && (
+                        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                            <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-zinc-500" />
+                                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Transcript</span>
+                            </div>
+                            <p className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap leading-relaxed">
+                                {callState.result.transcript}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Call info */}
+                    <div className="flex items-center gap-4 text-xs text-zinc-400">
+                        {callState.result.endedReason && (
+                            <span>Ended: {callState.result.endedReason}</span>
+                        )}
+                        {callState.result.cost !== undefined && (
+                            <span>Cost: ${callState.result.cost.toFixed(4)}</span>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function TaskSummary({ analysis }: { analysis: AnalysisResult }) {
     const { extractedInfo, callObjective } = analysis;
     const { questionsToAsk = [] } = extractedInfo;
+    const [callState, setCallState] = useState<CallState>({ status: "idle" });
+
+    const pollCallStatus = useCallback(async (callId: string) => {
+        const maxAttempts = 60; // 5 minutes max (5s intervals)
+        let attempts = 0;
+
+        const poll = async () => {
+            try {
+                const response = await fetch(`/api/vapi?callId=${callId}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    setCallState({ status: "failed", error: data.error });
+                    return;
+                }
+
+                if (data.status === "ended") {
+                    setCallState({
+                        status: "completed",
+                        callId,
+                        result: {
+                            transcript: data.transcript,
+                            recordingUrl: data.recordingUrl,
+                            analysis: data.analysis,
+                            endedReason: data.endedReason,
+                            cost: data.cost,
+                        },
+                    });
+                    return;
+                }
+
+                if (data.status === "in-progress" || data.status === "ringing") {
+                    setCallState({ status: "in-progress", callId });
+                }
+
+                attempts++;
+                if (attempts < maxAttempts) {
+                    setTimeout(poll, 5000);
+                } else {
+                    setCallState({ status: "failed", error: "Call timed out" });
+                }
+            } catch (error) {
+                setCallState({ status: "failed", error: "Failed to check call status" });
+            }
+        };
+
+        poll();
+    }, []);
+
+    const initiateCall = async () => {
+        if (!extractedInfo.phoneNumber) {
+            setCallState({ status: "failed", error: "No phone number provided" });
+            return;
+        }
+
+        setCallState({ status: "calling" });
+
+        try {
+            const response = await fetch("/api/vapi", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    phoneNumber: extractedInfo.phoneNumber,
+                    callObjective: callObjective || "Gather information",
+                    serviceName: extractedInfo.service || "service",
+                    serviceDetails: extractedInfo.serviceDetails,
+                    questionsToAsk: questionsToAsk,
+                    budget: extractedInfo.budget,
+                    timeConstraint: extractedInfo.timeConstraints,
+                    userName: extractedInfo.userName,
+                    callbackNumber: extractedInfo.callbackNumber,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to initiate call");
+            }
+
+            setCallState({ status: "in-progress", callId: data.call.id });
+            pollCallStatus(data.call.id);
+        } catch (error) {
+            setCallState({
+                status: "failed",
+                error: error instanceof Error ? error.message : "Failed to initiate call",
+            });
+        }
+    };
 
     // Separate standard keys to ensure a logical order at the top
     const orderedKeys = ['service', 'serviceDetails', 'location', 'budget', 'timeConstraints', 'preferredCriteria', 'phoneNumber', 'additionalNotes'];
@@ -261,20 +442,37 @@ function TaskSummary({ analysis }: { analysis: AnalysisResult }) {
 
             {/* Final Action */}
             <div className="pt-4 space-y-8">
-                <button className="group relative w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-2xl text-sm font-semibold hover:bg-black dark:hover:bg-white transition-all overflow-hidden shadow-2xl shadow-zinc-200 dark:shadow-none">
+                <button
+                    onClick={initiateCall}
+                    disabled={callState.status === "calling" || callState.status === "in-progress"}
+                    className="group relative w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-2xl text-sm font-semibold hover:bg-black dark:hover:bg-white transition-all overflow-hidden shadow-2xl shadow-zinc-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                     <span className="relative z-10 flex items-center justify-center gap-2">
-                        Initiate Call Process
+                        {callState.status === "calling" && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {callState.status === "in-progress" && <Phone className="w-4 h-4 animate-pulse" />}
+                        {callState.status === "idle" && <Phone className="w-4 h-4" />}
+                        {callState.status === "completed" && <CheckCircle className="w-4 h-4" />}
+                        {callState.status === "failed" && <XCircle className="w-4 h-4" />}
+                        {callState.status === "idle" && "Initiate Call Process"}
+                        {callState.status === "calling" && "Initiating..."}
+                        {callState.status === "in-progress" && "Call In Progress..."}
+                        {callState.status === "completed" && "Call Completed"}
+                        {callState.status === "failed" && "Retry Call"}
                     </span>
                 </button>
 
-                <div className="flex flex-col items-center text-center space-y-2">
-                    <p className="text-sm text-zinc-600 dark:text-zinc-200 font-medium tracking-tight">
-                        Everything look correct?
-                    </p>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 max-w-[80%] leading-relaxed">
-                        If you have more instructions or want to change anything, just type it below—I'm ready when you are.
-                    </p>
-                </div>
+                <CallResultsDisplay callState={callState} />
+
+                {callState.status === "idle" && (
+                    <div className="flex flex-col items-center text-center space-y-2">
+                        <p className="text-sm text-zinc-600 dark:text-zinc-200 font-medium tracking-tight">
+                            Everything look correct?
+                        </p>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 max-w-[80%] leading-relaxed">
+                            If you have more instructions or want to change anything, just type it below—I'm ready when you are.
+                        </p>
+                    </div>
+                )}
             </div>
         </div>
     );

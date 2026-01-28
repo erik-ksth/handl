@@ -91,7 +91,9 @@ For task updates (responseType: "task_update"):
     "preferredCriteria": "cheapest | fastest | nearest | best_rated | null",
     "phoneNumber": "string or null",
     "questionsToAsk": ["array of questions"],
-    "additionalNotes": "string or null"
+    "additionalNotes": "string or null",
+    "userName": "string or null",
+    "callbackNumber": "string or null"
   },
   "missingInfo": [
     {
@@ -127,6 +129,9 @@ RULES FOR MISSING INFO:
 - For service details: Ask about specific model, make, type, size, etc.
 - For location: Always required for call_businesses type
 - For call_specific_number: Phone number is REQUIRED
+- ALWAYS include userName and callbackNumber in missingInfo as OPTIONAL fields if not yet provided
+  - userName: "What name should I use when calling on your behalf?", type: "text", placeholder: "e.g., John"
+  - callbackNumber: "What's a good callback number if they need to reach you?", type: "tel", placeholder: "e.g., (555) 123-4567"
 
 CRITICAL RULES FOR FIELD TYPES:
 
