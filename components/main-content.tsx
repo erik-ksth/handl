@@ -5,246 +5,538 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { ArrowUp } from "lucide-react";
 
+interface AnalysisResult {
+    responseType?: "task_update" | "conversation";
+    reply?: string;
+    callType: "call_businesses" | "call_specific_number" | null;
+    hasAllRequiredInfo: boolean;
+    extractedInfo: {
+        service: string | null;
+        serviceDetails: string | null;
+        location: string | null;
+        budget: string | null;
+        timeConstraints: string | null;
+        preferredCriteria: "cheapest" | "fastest" | "nearest" | "best_rated" | null;
+        phoneNumber: string | null;
+        questionsToAsk: string[];
+        additionalNotes: string | null;
+        [key: string]: any;
+    };
+    missingInfo: Array<{
+        field: string;
+        reason: string;
+        question: string;
+        type: "text" | "select" | "number" | "tel" | "date";
+        required: boolean;
+        options?: string[];
+        placeholder?: string;
+    }>;
+    callObjective: string | null;
+}
+
 interface MainContentProps {
-  leftOpen: boolean;
-  rightOpen: boolean;
+    leftOpen: boolean;
+    rightOpen: boolean;
 }
 
 interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: any;
+    id: string;
+    role: "user" | "assistant";
+    content: string | AnalysisResult;
 }
 
 const EXAMPLES = [
-  "Find the cheapest laptop screen repair for a MacBook Pro in San Francisco",
-  "Call 5 dentists near me and check availability for a cleaning next week",
-  "Get quotes for fixing a cracked iPhone 13 screen",
-  "Compare prices for oil changes at mechanics within 5 miles of my location",
-  "Call plumbers in downtown Oakland and ask for quotes to fix a leaky faucet",
-  "Find the best price for car windshield replacement for a 2019 Honda Civic near me",
-  "Check availability at 3 hair salons for a women's haircut this Saturday afternoon",
-  "Get estimates from contractors for repainting a 2-bedroom apartment in San Francisco",
-  "Call dog groomers in San Jose and compare prices for a large breed bath and nail trim",
-  "Find electricians who can install a ceiling fan tomorrow and get their hourly rates"
+    "Find the cheapest laptop screen repair for a MacBook Pro in San Francisco",
+    "Call 5 dentists near me and check availability for a cleaning next week",
+    "Get quotes for fixing a cracked iPhone 13 screen",
+    "Compare prices for oil changes at mechanics within 5 miles of my location",
+    "Call plumbers in downtown Oakland and ask for quotes to fix a leaky faucet",
+    "Find the best price for car windshield replacement for a 2019 Honda Civic near me",
+    "Check availability at 3 hair salons for a women's haircut this Saturday afternoon",
+    "Get estimates from contractors for repainting a 2-bedroom apartment in San Francisco",
+    "Call dog groomers in San Jose and compare prices for a large breed bath and nail trim",
+    "Find electricians who can install a ceiling fan tomorrow and get their hourly rates"
 ];
 
-export function MainContent({ leftOpen, rightOpen }: MainContentProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [exampleIndex, setExampleIndex] = useState(0);
+function MissingInfoField({ info, value, onChange }: { info: any, value: string, onChange: (val: string) => void }) {
+    const isOtherSelected = value.toLowerCase() === "other";
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+    return (
+        <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                    {info.field.replace('_', ' ')}
+                </span>
+                {info.required && (
+                    <span className="text-[10px] bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-1.5 py-0.5 rounded font-bold uppercase">Required</span>
+                )}
+            </div>
+            <p className="text-sm text-zinc-800 dark:text-zinc-200">{info.question}</p>
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, loading]);
+            <div className="space-y-3">
+                <div className="flex gap-2">
+                    {info.type === "select" ? (
+                        <select
+                            value={isOtherSelected ? "other" : value}
+                            onChange={(e) => onChange(e.target.value)}
+                            className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-800 cursor-pointer"
+                        >
+                            <option value="" disabled>Select an option...</option>
+                            {info.options?.map((opt: string) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                        </select>
+                    ) : info.type === "textarea" ? (
+                        <textarea
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            placeholder={info.placeholder || `Enter ${info.field.replace('_', ' ')}...`}
+                            className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-800 min-h-[80px] resize-none"
+                        />
+                    ) : (
+                        <input
+                            type={info.type}
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            placeholder={info.placeholder || `Enter ${info.field.replace('_', ' ')}...`}
+                            className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-800"
+                        />
+                    )}
+                </div>
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setExampleIndex((prev) => (prev + 1) % EXAMPLES.length);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, []);
+                {isOtherSelected && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="flex gap-2"
+                    >
+                        <input
+                            type="text"
+                            placeholder="Please specify..."
+                            autoFocus
+                            value={value === "other" ? "" : value}
+                            onChange={(e) => onChange(e.target.value)}
+                            className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-800"
+                        />
+                    </motion.div>
+                )}
+            </div>
+            <p className="text-[10px] text-zinc-400 italic">{info.reason}</p>
+        </div>
+    );
+}
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || loading) return;
+function AnalysisFormGroup({ missingInfo, onSubmit }: { missingInfo: any[], onSubmit: (answers: string) => void }) {
+    const [formValues, setFormValues] = useState<Record<string, string>>({});
+    const [isSubmitted, setIsSubmitted] = useState(false);
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
+    const handleFieldChange = (field: string, value: string) => {
+        setFormValues(prev => ({ ...prev, [field]: value }));
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setLoading(true);
+    const isFormValid = missingInfo.every(info => {
+        if (!info.required) return true;
+        const val = formValues[info.field];
+        return val && val.trim() !== "" && val.toLowerCase() !== "other";
+    });
 
-    try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task: userMessage.content }),
-      });
+    const handleSubmit = () => {
+        const summary = missingInfo
+            .map(info => {
+                const val = formValues[info.field];
+                return val ? `${info.field.replace('_', ' ')}: ${val}` : null;
+            })
+            .filter(Boolean)
+            .join(", ");
 
-      const data = await response.json();
+        setIsSubmitted(true);
+        onSubmit(`I've provided the missing details: ${summary}`);
+    };
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to analyze task");
-      }
+    if (isSubmitted) return null;
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.analysis,
-      };
+    return (
+        <div className="mt-8 space-y-6 border-t border-zinc-100 dark:border-zinc-800 pt-8">
+            <div className="flex items-center gap-2 mb-4">
+                <div className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold uppercase rounded tracking-wider">
+                    Interactive
+                </div>
+                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Provide Missing Info</h4>
+            </div>
 
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `Error: ${err instanceof Error ? err.message : "An error occurred"}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
-  };
+            <div className="space-y-4">
+                {missingInfo.map((info, i) => (
+                    <MissingInfoField
+                        key={i}
+                        info={info}
+                        value={formValues[info.field] || ""}
+                        onChange={(val) => handleFieldChange(info.field, val)}
+                    />
+                ))}
+            </div>
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
+            <div className="flex justify-end pt-4">
+                <button
+                    onClick={(e) => {
+                        e.preventDefault();
+                        handleSubmit();
+                    }}
+                    disabled={!isFormValid}
+                    className="px-8 py-3 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-md shadow-zinc-200 dark:shadow-none"
+                >
+                    Submit All Details
+                </button>
+            </div>
+        </div>
+    );
+}
 
-  const showEmptyState = messages.length === 0;
+function SummaryItem({ label, value }: { label: string, value: any }) {
+    if (!value || (Array.isArray(value) && value.length === 0)) return null;
+    return (
+        <div className="space-y-1">
+            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">{label}</span>
+            <p className="text-sm text-zinc-800 dark:text-zinc-200 font-medium">{value}</p>
+        </div>
+    );
+}
 
-  return (
-    <motion.main
-      animate={{
-        paddingLeft: leftOpen ? "300px" : "100px",
-        paddingRight: rightOpen ? "320px" : "100px",
-      }}
-      transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="relative flex-1 h-screen w-full flex flex-col bg-zinc-50 dark:bg-black transition-colors duration-300 overflow-hidden"
-    >
-      <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto h-full relative">
+function TaskSummary({ analysis }: { analysis: AnalysisResult }) {
+    const { extractedInfo, callObjective } = analysis;
+    const { questionsToAsk = [] } = extractedInfo;
 
-        <AnimatePresence>
-          {showEmptyState && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center p-8 z-0 pointer-events-none"
-            >
-              <motion.div
-                initial={{ y: -20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.8 }}
-                className="w-24 h-24 md:w-32 md:h-32 relative mb-8"
-              >
-                <Image
-                  src="/logo.png"
-                  alt="Handl Logo"
-                  fill
-                  className="object-contain dark:hidden"
-                  priority
-                />
-                <Image
-                  src="/logo-white.png"
-                  alt="Handl Logo"
-                  fill
-                  className="object-contain hidden dark:block"
-                  priority
-                />
-              </motion.div>
+    // Separate standard keys to ensure a logical order at the top
+    const orderedKeys = ['service', 'serviceDetails', 'location', 'budget', 'timeConstraints', 'preferredCriteria', 'phoneNumber', 'additionalNotes'];
 
-              <div className="h-8 relative w-full overflow-hidden flex items-center justify-center">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={exampleIndex}
-                    initial={{ y: 20, opacity: 0, filter: "blur(4px)" }}
-                    animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                    exit={{ y: -20, opacity: 0, filter: "blur(4px)" }}
-                    transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute text-center text-lg md:text-xl text-zinc-400 dark:text-zinc-600 font-light tracking-wide"
-                  >
-                    {EXAMPLES[exampleIndex]}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+    // Get all other flexible keys
+    const extraInfoKeys = Object.keys(extractedInfo).filter(
+        key => !orderedKeys.includes(key) && key !== 'questionsToAsk' && extractedInfo[key]
+    );
 
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto w-full p-4 md:p-8 space-y-6 scroll-smooth z-10"
+    return (
+        <div className="space-y-8 py-2">
+            {/* Header Section */}
+            <div className="space-y-3">
+                <div className="inline-flex items-center px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
+                    Task Summary
+                </div>
+                <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 leading-tight">
+                    {callObjective}
+                </h3>
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 border-y border-zinc-100 dark:border-zinc-800/50 py-10">
+                <SummaryItem label="Service" value={extractedInfo.service} />
+                <SummaryItem label="Details" value={extractedInfo.serviceDetails} />
+                <SummaryItem label="Location" value={extractedInfo.location} />
+                <SummaryItem label="Budget" value={extractedInfo.budget} />
+                <SummaryItem label="Timeline" value={extractedInfo.timeConstraints} />
+                <SummaryItem label="Priority" value={extractedInfo.preferredCriteria} />
+                <SummaryItem label="Phone Number" value={extractedInfo.phoneNumber} />
+                <SummaryItem label="Additional Notes" value={extractedInfo.additionalNotes} />
+
+                {/* Dynamically render any extra info detected by AI */}
+                {extraInfoKeys.map(key => (
+                    <SummaryItem
+                        key={key}
+                        label={key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, str => str.toUpperCase())}
+                        value={extractedInfo[key]}
+                    />
+                ))}
+            </div>
+
+            {/* Questions to Ask */}
+            <div className="space-y-6">
+                <h4 className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Key Inquiry Points</h4>
+                <div className="grid grid-cols-1 gap-4">
+                    {questionsToAsk.map((q: string, i: number) => (
+                        <div key={i} className="flex gap-4 p-4 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-xl border border-zinc-100 dark:border-zinc-800/50">
+                            <span className="text-zinc-300 dark:text-zinc-700 font-mono text-xs mt-0.5">0{i + 1}</span>
+                            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{q}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Final Action */}
+            <div className="pt-4 space-y-8">
+                <button className="group relative w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-2xl text-sm font-semibold hover:bg-black dark:hover:bg-white transition-all overflow-hidden shadow-2xl shadow-zinc-200 dark:shadow-none">
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                        Initiate Call Process
+                    </span>
+                </button>
+
+                <div className="flex flex-col items-center text-center space-y-2">
+                    <p className="text-sm text-zinc-600 dark:text-zinc-200 font-medium tracking-tight">
+                        Everything look correct?
+                    </p>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 max-w-[80%] leading-relaxed">
+                        If you have more instructions or want to change anything, just type it below—I'm ready when you are.
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export function MainContent({ leftOpen, rightOpen }: MainContentProps) {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [input, setInput] = useState("");
+    const [loading, setLoading] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [exampleIndex, setExampleIndex] = useState(0);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, loading]);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setExampleIndex((prev) => (prev + 1) % EXAMPLES.length);
+        }, 3000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const handleSubmit = async (e?: React.FormEvent, overrideInput?: string) => {
+        e?.preventDefault();
+        const content = overrideInput || input.trim();
+        if (!content || loading) return;
+
+        const userMessage: Message = {
+            id: Date.now().toString(),
+            role: "user",
+            content: content,
+        };
+
+        const updatedMessages = [...messages, userMessage];
+        setMessages(updatedMessages);
+        setInput("");
+        setLoading(true);
+
+        try {
+            const response = await fetch("/api/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messages: updatedMessages }),
+            });
+
+            const data = await response.json();
+            console.log("Analysis Result:", data.analysis);
+
+            if (!response.ok) {
+                throw new Error(data.error || "Something went wrong. Please try again using different prompt.");
+            }
+
+            const assistantMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: data.analysis,
+            };
+
+            setMessages((prev) => [...prev, assistantMessage]);
+        } catch (err) {
+            const errorMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: `Error: ${err instanceof Error ? err.message : "An error occurred"}`,
+            };
+            setMessages((prev) => [...prev, errorMessage]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit();
+        }
+    };
+
+    const showEmptyState = messages.length === 0;
+
+    return (
+        <motion.main
+            className="relative flex-1 h-screen w-full flex flex-col bg-zinc-50 dark:bg-black transition-colors duration-300 overflow-hidden"
         >
-          {messages.map((msg) => (
+            <div
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto w-full scroll-smooth z-10"
+            >
+                <AnimatePresence>
+                    {showEmptyState && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-x-0 h-full flex flex-col items-center justify-center p-8 z-0 pointer-events-none"
+                        >
+                            <motion.div
+                                animate={{
+                                    paddingLeft: leftOpen ? "280px" : "72px",
+                                    paddingRight: rightOpen ? "320px" : "0px",
+                                }}
+                                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                                className="flex flex-col items-center justify-center w-full px-4"
+                            >
+                                <motion.div
+                                    initial={{ y: -20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ duration: 0.8 }}
+                                    className="w-24 h-24 md:w-32 md:h-32 relative mb-8"
+                                >
+                                    <Image
+                                        src="/logo.png"
+                                        alt="Handl Logo"
+                                        fill
+                                        className="object-contain dark:hidden"
+                                        priority
+                                    />
+                                    <Image
+                                        src="/logo-white.png"
+                                        alt="Handl Logo"
+                                        fill
+                                        className="object-contain hidden dark:block"
+                                        priority
+                                    />
+                                </motion.div>
+
+                                <div className="h-20 relative w-full mb-4 overflow-hidden flex items-center justify-center">
+                                    <AnimatePresence mode="wait">
+                                        <motion.div
+                                            key={exampleIndex}
+                                            initial={{ y: 20, opacity: 0, filter: "blur(4px)" }}
+                                            animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+                                            exit={{ y: -20, opacity: 0, filter: "blur(4px)" }}
+                                            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                                            className="absolute w-full max-w-4xl text-center text-lg md:text-xl text-zinc-400 dark:text-zinc-600 font-light tracking-wide px-4"
+                                        >
+                                            {EXAMPLES[exampleIndex]}
+                                        </motion.div>
+                                    </AnimatePresence>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <motion.div
+                    animate={{
+                        paddingLeft: leftOpen ? "280px" : "72px",
+                        paddingRight: rightOpen ? "320px" : "0px",
+                    }}
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    className="w-full flex flex-col"
+                >
+                    <div className="flex-1 w-full max-w-4xl mx-auto min-h-[calc(100vh-200px)] flex flex-col p-4 md:p-8 space-y-6 relative">
+                        {messages.map((msg) => (
+                            <motion.div
+                                key={msg.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                            >
+                                <div
+                                    className={`max-w-[80%] rounded-2xl p-4 md:p-6 ${msg.role === "user"
+                                        ? "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 backdrop-blur-sm"
+                                        : "bg-transparent w-full"
+                                        }`}
+                                >
+                                    {msg.role === "assistant" ? (
+                                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 md:p-8 shadow-sm">
+                                            {/* Conversation response - just show the reply */}
+                                            {typeof msg.content !== "string" && msg.content.responseType === "conversation" ? (
+                                                <div className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-base">
+                                                    {msg.content.reply}
+                                                </div>
+                                            ) : typeof msg.content !== "string" && !msg.content.hasAllRequiredInfo ? (
+                                                /* If incomplete, show technical analysis and forms */
+                                                <>
+                                                    <h3 className="text-sm uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-6 font-medium flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                                                        Required Information
+                                                    </h3>
+
+                                                    <AnalysisFormGroup
+                                                        missingInfo={msg.content.missingInfo}
+                                                        onSubmit={(answers) => handleSubmit(undefined, answers)}
+                                                    />
+                                                </>
+                                            ) : typeof msg.content !== "string" && msg.content.hasAllRequiredInfo ? (
+                                                /* If complete, show the premium summary */
+                                                <TaskSummary analysis={msg.content} />
+                                            ) : (
+                                                /* Fallback for strings / errors */
+                                                <div className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                                                    {typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-lg md:text-xl font-light tracking-tight px-2">
+                                            {typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        ))}
+
+                        {loading && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex justify-start w-full px-4 md:px-8"
+                            >
+                                <div className="bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-4 flex items-center gap-2 text-zinc-400">
+                                    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                    <div className="w-2 h-2 bg-current rounded-full animate-bounce" />
+                                </div>
+                            </motion.div>
+                        )}
+                        <div ref={messagesEndRef} className="h-20" />
+                    </div>
+                </motion.div>
+            </div>
+
             <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                animate={{
+                    paddingLeft: leftOpen ? "280px" : "72px",
+                    paddingRight: rightOpen ? "320px" : "0px",
+                }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="w-full p-4 md:p-6 z-20 pb-8 pt-4 bg-gradient-to-t from-zinc-50 dark:from-black via-zinc-50 dark:via-black to-transparent"
             >
-              <div
-                className={`max-w-[80%] rounded-2xl p-4 md:p-6 ${msg.role === "user"
-                  ? "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 backdrop-blur-sm"
-                  : "bg-transparent w-full"
-                  }`}
-              >
-                {msg.role === "assistant" ? (
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-sm uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-4 font-medium flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                      Task Analysis
-                    </h3>
-                    <pre className="whitespace-pre-wrap text-zinc-600 dark:text-zinc-300 font-mono text-sm leading-relaxed overflow-x-auto">
-                      {typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content, null, 2)}
-                    </pre>
-                  </div>
-                ) : (
-                  <div className="text-lg md:text-xl font-light tracking-tight">
-                    {typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}
-                  </div>
-                )}
-              </div>
+                <div className="relative flex items-center w-full max-w-4xl mx-auto bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 focus-within:ring-2 focus-within:ring-zinc-100 dark:focus-within:ring-zinc-800 transition-all shadow-lg shadow-zinc-200/50 dark:shadow-none">
+                    <textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="What's the task?"
+                        className="flex-1 bg-transparent border-0 focus:ring-0 resize-none py-4 pl-6 pr-14 min-h-[60px] max-h-[200px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 text-lg font-light leading-relaxed scrollbar-hide focus:outline-none"
+                        rows={1}
+                    />
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleSubmit()}
+                        disabled={!input.trim() || loading}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
+                    >
+                        {loading ? (
+                            <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <ArrowUp className="w-5 h-5" />
+                        )}
+                    </motion.button>
+                </div>
             </motion.div>
-          ))}
-
-          {loading && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex justify-start w-full px-4 md:px-8"
-            >
-              <div className="bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-4 flex items-center gap-2 text-zinc-400">
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce" />
-              </div>
-            </motion.div>
-          )}
-          <div ref={messagesEndRef} className="h-4" />
-        </div>
-
-        <div className="w-full p-4 md:p-6 z-20 pb-8 pt-12">
-          <div className="relative flex items-center w-full max-w-4xl mx-auto bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 focus-within:ring-2 focus-within:ring-zinc-100 dark:focus-within:ring-zinc-800 transition-all shadow-lg shadow-zinc-200/50 dark:shadow-none">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="What's the task?"
-              className="flex-1 bg-transparent border-0 focus:ring-0 resize-none py-4 pl-6 pr-14 min-h-[60px] max-h-[200px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 text-lg font-light leading-relaxed scrollbar-hide focus:outline-none"
-              rows={1}
-            />
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleSubmit()}
-              disabled={!input.trim() || loading}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <ArrowUp className="w-5 h-5" />
-              )}
-            </motion.button>
-          </div>
-        </div>
-
-      </div>
-    </motion.main>
-  );
+        </motion.main>
+    );
 }
