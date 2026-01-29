@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { AuthButton } from "./auth-button";
+
 interface LeftDrawerProps {
   isOpen: boolean;
   onToggle: () => void;
@@ -40,13 +42,13 @@ export function LeftDrawer({ isOpen, onToggle }: LeftDrawerProps) {
           <div className="my-6">
             {mounted && (
               <div className="w-10 h-10 relative flex items-center justify-center">
-                 <Image
-                    src={theme === "dark" ? "/logo-white.png" : "/logo.png"}
-                    alt="Handl Logo"
-                    width={32}
-                    height={32}
-                    className="object-contain"
-                  />
+                <Image
+                  src={theme === "dark" ? "/logo-white.png" : "/logo.png"}
+                  alt="Handl Logo"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                />
               </div>
             )}
           </div>
@@ -73,43 +75,45 @@ export function LeftDrawer({ isOpen, onToggle }: LeftDrawerProps) {
             >
               {isOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
             </button>
-            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-foreground cursor-pointer hover:ring-2 hover:ring-muted-foreground/20 transition-all">
-              EH
-            </div>
           </div>
         </div>
 
         {/* Expanded Panel Content */}
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-sidebar-bg">
-            <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait">
             {isOpen && (
-                <motion.div
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className="flex flex-col h-full w-full p-6 pt-24"
-                >
+              >
                 <div className="flex-1 overflow-y-auto space-y-8 scrollbar-hide">
-                    <div>
+                  <div>
                     <h3 className="text-xs font-medium text-muted-foreground mb-4 pl-2 uppercase tracking-wider">Today</h3>
                     <div className="space-y-1">
-                        <div
+                      <div
                         className="text-sm py-2 px-3 rounded-lg text-foreground hover:bg-muted cursor-pointer truncate transition-colors duration-200"
-                        >
+                      >
                         Project discovery session
-                        </div>
-                        <div
+                      </div>
+                      <div
                         className="text-sm py-2 px-3 rounded-lg text-foreground hover:bg-muted cursor-pointer truncate transition-colors duration-200"
-                        >
+                      >
                         Initial UI design
-                        </div>
+                      </div>
                     </div>
-                    </div>
+                  </div>
                 </div>
-                </motion.div>
+
+                {/* Auth section at the bottom of the expanded panel */}
+                <div className="mt-auto pt-4 border-t border-border">
+                  <AuthButton />
+                </div>
+              </motion.div>
             )}
-            </AnimatePresence>
+          </AnimatePresence>
         </div>
       </motion.div>
     </div>
