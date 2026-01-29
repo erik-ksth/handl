@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText, Plus, Trash2, Search, MapPin, Navigation } from "lucide-react";
+import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText, Plus, Trash2, Search, MapPin, Navigation, Star, Clock, Check } from "lucide-react";
 
 interface AnalysisResult {
     responseType?: "task_update" | "conversation";
@@ -208,16 +208,30 @@ interface PhoneEntry {
     phoneNumber: string;
 }
 
+interface BusinessResult {
+    name: string;
+    address: string;
+    phoneNumber: string | null;
+    rating: number | null;
+    totalRatings: number | null;
+    placeId: string;
+    isOpen: boolean | null;
+}
+
 function PhoneNumberCollector({ 
     allowMultiple, 
     onSubmit,
     serviceName,
-    initialLocation 
+    initialLocation,
+    requestedCount = 5,
+    preferredCriteria
 }: { 
     allowMultiple: boolean; 
     onSubmit: (phoneNumbers: Array<{ name?: string; phoneNumber: string }>) => void;
     serviceName?: string | null;
     initialLocation?: string | null;
+    requestedCount?: number;
+    preferredCriteria?: "cheapest" | "fastest" | "nearest" | "best_rated" | null;
 }) {
     const [phoneEntries, setPhoneEntries] = useState<PhoneEntry[]>([{ name: '', phoneNumber: '' }]);
     const [isSubmitted, setIsSubmitted] = useState(false);
@@ -228,6 +242,9 @@ function PhoneNumberCollector({
     const [locationSuggestions, setLocationSuggestions] = useState<Array<{ display_name: string; place_id: string }>>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+    const [searchResults, setSearchResults] = useState<BusinessResult[]>([]);
+    const [selectedBusinesses, setSelectedBusinesses] = useState<Set<string>>(new Set());
+    const [searchError, setSearchError] = useState<string | null>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const hasAutoSelectedRef = useRef(false);
 
@@ -373,15 +390,74 @@ function PhoneNumberCollector({
         if (!locationInput.trim()) return;
         
         setIsSearching(true);
-        // TODO: Implement actual business search API (Google Places, Yelp, etc.)
-        // For now, simulate a search delay
-        setTimeout(() => {
+        setSearchError(null);
+        setSearchResults([]);
+        setSelectedBusinesses(new Set());
+        
+        try {
+            const params = new URLSearchParams({
+                query: serviceName || 'business',
+                location: locationInput,
+                limit: requestedCount.toString(),
+                ...(preferredCriteria && { preferredCriteria }),
+            });
+            
+            const response = await fetch(`/api/places/search?${params}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                setSearchError(data.error);
+                return;
+            }
+            
+            if (data.results && data.results.length > 0) {
+                setSearchResults(data.results);
+                // Auto-select all businesses with phone numbers
+                const withPhones = data.results
+                    .filter((b: BusinessResult) => b.phoneNumber)
+                    .map((b: BusinessResult) => b.placeId);
+                setSelectedBusinesses(new Set(withPhones));
+                setShowLocationPicker(false);
+            } else {
+                setSearchError('No businesses found. Try a different location or search term.');
+            }
+        } catch (error) {
+            console.error('Error searching businesses:', error);
+            setSearchError('Failed to search for businesses. Please try again.');
+        } finally {
             setIsSearching(false);
-            setShowLocationPicker(false);
-            // TODO: Replace with actual results - for now just show a message
-            alert(`Business search for "${serviceName || 'businesses'}" near "${locationInput}" coming soon! For now, please enter phone numbers manually.`);
-        }, 1000);
+        }
     };
+
+    const toggleBusinessSelection = (placeId: string) => {
+        setSelectedBusinesses(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(placeId)) {
+                newSet.delete(placeId);
+            } else {
+                newSet.add(placeId);
+            }
+            return newSet;
+        });
+    };
+
+    const handleSubmitSelectedBusinesses = () => {
+        const selected = searchResults
+            .filter(b => selectedBusinesses.has(b.placeId) && b.phoneNumber)
+            .map(b => ({
+                name: b.name,
+                phoneNumber: b.phoneNumber!
+            }));
+        
+        if (selected.length > 0) {
+            setIsSubmitted(true);
+            onSubmit(selected);
+        }
+    };
+
+    const selectedWithPhones = searchResults.filter(
+        b => selectedBusinesses.has(b.placeId) && b.phoneNumber
+    ).length;
 
     if (isSubmitted) return null;
 
@@ -397,7 +473,7 @@ function PhoneNumberCollector({
             </div>
 
             {/* Find Businesses Button - only show for call_businesses */}
-            {allowMultiple && !showLocationPicker && (
+            {allowMultiple && !showLocationPicker && searchResults.length === 0 && (
                 <button
                     onClick={() => setShowLocationPicker(true)}
                     className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
@@ -501,8 +577,121 @@ function PhoneNumberCollector({
                 )}
             </AnimatePresence>
 
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h5 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                            Found {searchResults.length} businesses
+                        </h5>
+                        <span className="text-xs text-zinc-400">
+                            {selectedWithPhones} selected
+                        </span>
+                    </div>
+                    
+                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                        {searchResults.map((business) => (
+                            <div
+                                key={business.placeId}
+                                onClick={() => business.phoneNumber && toggleBusinessSelection(business.placeId)}
+                                className={`p-3 rounded-xl border transition-all ${
+                                    !business.phoneNumber
+                                        ? 'bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 opacity-60 cursor-not-allowed'
+                                        : selectedBusinesses.has(business.placeId)
+                                        ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 cursor-pointer'
+                                        : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 cursor-pointer'
+                                }`}
+                            >
+                                <div className="flex items-start gap-3">
+                                    <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                        !business.phoneNumber
+                                            ? 'border-zinc-300 dark:border-zinc-700'
+                                            : selectedBusinesses.has(business.placeId)
+                                            ? 'border-green-500 bg-green-500'
+                                            : 'border-zinc-300 dark:border-zinc-600'
+                                    }`}>
+                                        {selectedBusinesses.has(business.placeId) && business.phoneNumber && (
+                                            <Check className="w-3 h-3 text-white" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-medium text-sm text-zinc-800 dark:text-zinc-200 truncate">
+                                                {business.name}
+                                            </span>
+                                            {business.isOpen !== null && (
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                                    business.isOpen
+                                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                                }`}>
+                                                    {business.isOpen ? 'Open' : 'Closed'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                                            {business.address}
+                                        </p>
+                                        <div className="flex items-center gap-3 mt-1.5">
+                                            {business.rating && (
+                                                <div className="flex items-center gap-1">
+                                                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                                    <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                                                        {business.rating}
+                                                        {business.totalRatings && (
+                                                            <span className="text-zinc-400 dark:text-zinc-500"> ({business.totalRatings})</span>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {business.phoneNumber ? (
+                                                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {business.phoneNumber}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
+                                                    <XCircle className="w-3 h-3" />
+                                                    No phone number
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2">
+                        <button
+                            onClick={() => {
+                                setSearchResults([]);
+                                setSelectedBusinesses(new Set());
+                                setShowLocationPicker(true);
+                            }}
+                            className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+                        >
+                            Search again
+                        </button>
+                        <button
+                            onClick={handleSubmitSelectedBusinesses}
+                            disabled={selectedWithPhones === 0}
+                            className="px-6 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            Call {selectedWithPhones} Business{selectedWithPhones !== 1 ? 'es' : ''}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Search Error */}
+            {searchError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-600 dark:text-red-400">
+                    {searchError}
+                </div>
+            )}
+
             {/* Divider when location picker is shown */}
-            {allowMultiple && !showLocationPicker && (
+            {allowMultiple && !showLocationPicker && searchResults.length === 0 && (
                 <div className="flex items-center gap-2 text-xs text-zinc-400">
                     <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
                     <span>or enter manually</span>
@@ -510,7 +699,7 @@ function PhoneNumberCollector({
                 </div>
             )}
 
-            <div className="space-y-3">
+            <div className={`space-y-3 ${searchResults.length > 0 ? 'hidden' : ''}`}>
                 {phoneEntries.map((entry, index) => (
                     <div key={index} className="flex gap-2 items-center">
                         {allowMultiple && (
@@ -558,15 +747,17 @@ function PhoneNumberCollector({
                 }
             </p>
 
-            <div className="flex justify-end pt-4">
-                <button
-                    onClick={handleSubmit}
-                    disabled={!isValid}
-                    className="px-8 py-3 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-md shadow-zinc-200 dark:shadow-none"
-                >
-                    {allowMultiple ? `Start Calling ${validEntries.length} Number${validEntries.length !== 1 ? 's' : ''}` : "Continue"}
-                </button>
-            </div>
+            {searchResults.length === 0 && (
+                <div className="flex justify-end pt-4">
+                    <button
+                        onClick={handleSubmit}
+                        disabled={!isValid}
+                        className="px-8 py-3 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-md shadow-zinc-200 dark:shadow-none"
+                    >
+                        {allowMultiple ? `Start Calling ${validEntries.length} Number${validEntries.length !== 1 ? 's' : ''}` : "Continue"}
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -1045,6 +1236,7 @@ export function MainContent({ leftOpen, rightOpen }: MainContentProps) {
                                                         allowMultiple={msg.content.callType === "call_businesses"}
                                                         serviceName={msg.content.extractedInfo.service}
                                                         initialLocation={msg.content.extractedInfo.location}
+                                                        preferredCriteria={msg.content.extractedInfo.preferredCriteria}
                                                         onSubmit={(phoneNumbers) => {
                                                             const phoneList = phoneNumbers.map(p => p.name ? `${p.name}: ${p.phoneNumber}` : p.phoneNumber).join(", ");
                                                             handleSubmit(undefined, `Here are the phone numbers to call: ${phoneList}`);
