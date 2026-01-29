@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText } from "lucide-react";
+import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText, Plus, Trash2, Search, MapPin, Navigation } from "lucide-react";
 
 interface AnalysisResult {
     responseType?: "task_update" | "conversation";
@@ -17,7 +17,7 @@ interface AnalysisResult {
         budget: string | null;
         timeConstraints: string | null;
         preferredCriteria: "cheapest" | "fastest" | "nearest" | "best_rated" | null;
-        phoneNumber: string | null;
+        phoneNumbers: Array<{ name?: string; phoneNumber: string }>;
         questionsToAsk: string[];
         additionalNotes: string | null;
         userName?: string | null;
@@ -203,6 +203,374 @@ function SummaryItem({ label, value }: { label: string, value: any }) {
     );
 }
 
+interface PhoneEntry {
+    name: string;
+    phoneNumber: string;
+}
+
+function PhoneNumberCollector({ 
+    allowMultiple, 
+    onSubmit,
+    serviceName,
+    initialLocation 
+}: { 
+    allowMultiple: boolean; 
+    onSubmit: (phoneNumbers: Array<{ name?: string; phoneNumber: string }>) => void;
+    serviceName?: string | null;
+    initialLocation?: string | null;
+}) {
+    const [phoneEntries, setPhoneEntries] = useState<PhoneEntry[]>([{ name: '', phoneNumber: '' }]);
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [showLocationPicker, setShowLocationPicker] = useState(false);
+    const [locationInput, setLocationInput] = useState(initialLocation || '');
+    const [isSearching, setIsSearching] = useState(false);
+    const [isGettingLocation, setIsGettingLocation] = useState(false);
+    const [locationSuggestions, setLocationSuggestions] = useState<Array<{ display_name: string; place_id: string }>>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+    const debounceRef = useRef<NodeJS.Timeout | null>(null);
+    const hasAutoSelectedRef = useRef(false);
+
+    // Auto-fetch and select first suggestion when initialLocation is provided
+    useEffect(() => {
+        if (initialLocation && initialLocation.trim().length >= 2 && !hasAutoSelectedRef.current) {
+            hasAutoSelectedRef.current = true;
+            const fetchAndSelectFirst = async () => {
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(initialLocation)}&format=json&addressdetails=1&limit=1&countrycodes=us`
+                    );
+                    const data = await response.json();
+                    if (data.length > 0) {
+                        const item = data[0];
+                        const city = item.address?.city || item.address?.town || item.address?.village || item.name || '';
+                        const state = item.address?.state || '';
+                        const displayName = city && state ? `${city}, ${state}` : item.display_name.split(',').slice(0, 2).join(',');
+                        setLocationInput(displayName);
+                    }
+                } catch (error) {
+                    console.error("Error auto-selecting location:", error);
+                }
+            };
+            fetchAndSelectFirst();
+        }
+    }, [initialLocation]);
+
+    // Debounced location autocomplete using OpenStreetMap Nominatim
+    const handleLocationInputChange = (value: string) => {
+        setLocationInput(value);
+        setShowSuggestions(true);
+
+        // Clear previous debounce
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+        }
+
+        if (value.trim().length < 2) {
+            setLocationSuggestions([]);
+            return;
+        }
+
+        // Debounce API calls (300ms)
+        debounceRef.current = setTimeout(async () => {
+            setIsLoadingSuggestions(true);
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value)}&format=json&addressdetails=1&limit=5&countrycodes=us`
+                );
+                const data = await response.json();
+                const suggestions = data.map((item: any) => {
+                    // Format as "City, State" when possible
+                    const city = item.address?.city || item.address?.town || item.address?.village || item.name || '';
+                    const state = item.address?.state || '';
+                    const displayName = city && state ? `${city}, ${state}` : item.display_name.split(',').slice(0, 2).join(',');
+                    return {
+                        display_name: displayName,
+                        place_id: item.place_id
+                    };
+                });
+                setLocationSuggestions(suggestions);
+            } catch (error) {
+                console.error("Error fetching location suggestions:", error);
+                setLocationSuggestions([]);
+            }
+            setIsLoadingSuggestions(false);
+        }, 300);
+    };
+
+    const handleSelectSuggestion = (suggestion: { display_name: string }) => {
+        setLocationInput(suggestion.display_name);
+        setShowSuggestions(false);
+        setLocationSuggestions([]);
+    };
+
+    const handleAddEntry = () => {
+        setPhoneEntries(prev => [...prev, { name: '', phoneNumber: '' }]);
+    };
+
+    const handleRemoveEntry = (index: number) => {
+        setPhoneEntries(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleEntryChange = (index: number, field: 'name' | 'phoneNumber', value: string) => {
+        setPhoneEntries(prev => prev.map((entry, i) => 
+            i === index ? { ...entry, [field]: value } : entry
+        ));
+    };
+
+    const validEntries = phoneEntries.filter(entry => entry.phoneNumber.trim() !== '');
+    const isValid = validEntries.length > 0;
+
+    const handleSubmit = () => {
+        setIsSubmitted(true);
+        onSubmit(validEntries.map(entry => ({
+            name: entry.name.trim() || undefined,
+            phoneNumber: entry.phoneNumber.trim()
+        })));
+    };
+
+    const handleUseCurrentLocation = () => {
+        setIsGettingLocation(true);
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    try {
+                        // Reverse geocode using OpenStreetMap Nominatim (free, no API key needed)
+                        const response = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+                        );
+                        const data = await response.json();
+                        const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || '';
+                        const state = data.address?.state || '';
+                        if (city && state) {
+                            setLocationInput(`${city}, ${state}`);
+                        } else if (city || state) {
+                            setLocationInput(city || state);
+                        } else {
+                            // Fallback to coordinates if geocoding fails
+                            setLocationInput(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                        }
+                    } catch (error) {
+                        console.error("Error reverse geocoding:", error);
+                        setLocationInput(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                    }
+                    setIsGettingLocation(false);
+                },
+                (error) => {
+                    console.error("Error getting location:", error);
+                    setIsGettingLocation(false);
+                    alert("Could not get your location. Please enter it manually.");
+                }
+            );
+        } else {
+            setIsGettingLocation(false);
+            alert("Geolocation is not supported by your browser. Please enter location manually.");
+        }
+    };
+
+    const handleSearchBusinesses = async () => {
+        if (!locationInput.trim()) return;
+        
+        setIsSearching(true);
+        // TODO: Implement actual business search API (Google Places, Yelp, etc.)
+        // For now, simulate a search delay
+        setTimeout(() => {
+            setIsSearching(false);
+            setShowLocationPicker(false);
+            // TODO: Replace with actual results - for now just show a message
+            alert(`Business search for "${serviceName || 'businesses'}" near "${locationInput}" coming soon! For now, please enter phone numbers manually.`);
+        }, 1000);
+    };
+
+    if (isSubmitted) return null;
+
+    return (
+        <div className="mt-8 space-y-6 border-t border-zinc-100 dark:border-zinc-800 pt-8">
+            <div className="flex items-center gap-2 mb-4">
+                <div className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] font-bold uppercase rounded tracking-wider">
+                    Final Step
+                </div>
+                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                    {allowMultiple ? "Add Phone Numbers to Call" : "Enter Phone Number"}
+                </h4>
+            </div>
+
+            {/* Find Businesses Button - only show for call_businesses */}
+            {allowMultiple && !showLocationPicker && (
+                <button
+                    onClick={() => setShowLocationPicker(true)}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                >
+                    <Search className="w-4 h-4" />
+                    Find Businesses Automatically
+                </button>
+            )}
+
+            {/* Location Picker */}
+            <AnimatePresence>
+                {showLocationPicker && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-4 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/50 rounded-xl"
+                    >
+                        <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                Where should we search?
+                            </h5>
+                            <button
+                                onClick={() => setShowLocationPicker(false)}
+                                className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleUseCurrentLocation}
+                                disabled={isGettingLocation}
+                                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                            >
+                                {isGettingLocation ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Navigation className="w-4 h-4" />
+                                )}
+                                Use Current Location
+                            </button>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-zinc-400">
+                            <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+                            <span>or</span>
+                            <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+                        </div>
+
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 z-10" />
+                                <input
+                                    type="text"
+                                    value={locationInput}
+                                    onChange={(e) => handleLocationInputChange(e.target.value)}
+                                    onFocus={() => locationSuggestions.length > 0 && setShowSuggestions(true)}
+                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                    placeholder="Enter city, zip code, or address..."
+                                    className="w-full pl-10 pr-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
+                                />
+                                {/* Autocomplete suggestions dropdown */}
+                                {showSuggestions && (locationSuggestions.length > 0 || isLoadingSuggestions) && (
+                                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg z-20 overflow-hidden">
+                                        {isLoadingSuggestions ? (
+                                            <div className="px-3 py-2 text-sm text-zinc-400 flex items-center gap-2">
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                Searching...
+                                            </div>
+                                        ) : (
+                                            locationSuggestions.map((suggestion, index) => (
+                                                <button
+                                                    key={suggestion.place_id || index}
+                                                    onClick={() => handleSelectSuggestion(suggestion)}
+                                                    className="w-full px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                                                >
+                                                    <MapPin className="w-3 h-3 text-zinc-400 flex-shrink-0" />
+                                                    <span className="truncate">{suggestion.display_name}</span>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={handleSearchBusinesses}
+                                disabled={!locationInput.trim() || isSearching}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                {isSearching ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Search className="w-4 h-4" />
+                                )}
+                                Search
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Divider when location picker is shown */}
+            {allowMultiple && !showLocationPicker && (
+                <div className="flex items-center gap-2 text-xs text-zinc-400">
+                    <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+                    <span>or enter manually</span>
+                    <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" />
+                </div>
+            )}
+
+            <div className="space-y-3">
+                {phoneEntries.map((entry, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                        {allowMultiple && (
+                            <input
+                                type="text"
+                                value={entry.name}
+                                onChange={(e) => handleEntryChange(index, 'name', e.target.value)}
+                                placeholder="Business name (optional)"
+                                className="w-40 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-800"
+                            />
+                        )}
+                        <input
+                            type="tel"
+                            value={entry.phoneNumber}
+                            onChange={(e) => handleEntryChange(index, 'phoneNumber', e.target.value)}
+                            placeholder={allowMultiple ? `Phone number ${index + 1}` : "Enter phone number"}
+                            className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-800"
+                        />
+                        {allowMultiple && phoneEntries.length > 1 && (
+                            <button
+                                onClick={() => handleRemoveEntry(index)}
+                                className="p-2 text-zinc-400 hover:text-red-500 transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            {allowMultiple && (
+                <button
+                    onClick={handleAddEntry}
+                    className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+                >
+                    <Plus className="w-4 h-4" />
+                    Add another number
+                </button>
+            )}
+
+            <p className="text-xs text-zinc-400 italic">
+                {allowMultiple 
+                    ? "Add the phone numbers of businesses you'd like us to call. We'll contact each one to gather the information you need."
+                    : "Enter the phone number you'd like us to call."
+                }
+            </p>
+
+            <div className="flex justify-end pt-4">
+                <button
+                    onClick={handleSubmit}
+                    disabled={!isValid}
+                    className="px-8 py-3 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-md shadow-zinc-200 dark:shadow-none"
+                >
+                    {allowMultiple ? `Start Calling ${validEntries.length} Number${validEntries.length !== 1 ? 's' : ''}` : "Continue"}
+                </button>
+            </div>
+        </div>
+    );
+}
+
 interface CallState {
     status: "idle" | "calling" | "in-progress" | "completed" | "failed";
     callId?: string;
@@ -293,9 +661,9 @@ function CallResultsDisplay({ callState }: { callState: CallState }) {
     );
 }
 
-function TaskSummary({ analysis }: { analysis: AnalysisResult }) {
+function TaskSummary({ analysis, showCallButton = true }: { analysis: AnalysisResult; showCallButton?: boolean }) {
     const { extractedInfo, callObjective } = analysis;
-    const { questionsToAsk = [] } = extractedInfo;
+    const { questionsToAsk = [], phoneNumbers = [] } = extractedInfo;
     const [callState, setCallState] = useState<CallState>({ status: "idle" });
 
     const pollCallStatus = useCallback(async (callId: string) => {
@@ -346,19 +714,20 @@ function TaskSummary({ analysis }: { analysis: AnalysisResult }) {
     }, []);
 
     const initiateCall = async () => {
-        if (!extractedInfo.phoneNumber) {
-            setCallState({ status: "failed", error: "No phone number provided" });
+        if (!phoneNumbers || phoneNumbers.length === 0) {
+            setCallState({ status: "failed", error: "No phone numbers provided" });
             return;
         }
 
         setCallState({ status: "calling" });
 
         try {
+            // For now, call the first number. TODO: Support multiple calls
             const response = await fetch("/api/vapi", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    phoneNumber: extractedInfo.phoneNumber,
+                    phoneNumber: phoneNumbers[0].phoneNumber,
                     callObjective: callObjective || "Gather information",
                     serviceName: extractedInfo.service || "service",
                     serviceDetails: extractedInfo.serviceDetails,
@@ -387,7 +756,7 @@ function TaskSummary({ analysis }: { analysis: AnalysisResult }) {
     };
 
     // Separate standard keys to ensure a logical order at the top
-    const orderedKeys = ['service', 'serviceDetails', 'location', 'budget', 'timeConstraints', 'preferredCriteria', 'phoneNumber', 'additionalNotes'];
+    const orderedKeys = ['service', 'serviceDetails', 'location', 'budget', 'timeConstraints', 'preferredCriteria', 'phoneNumbers', 'additionalNotes'];
 
     // Get all other flexible keys
     const extraInfoKeys = Object.keys(extractedInfo).filter(
@@ -414,7 +783,7 @@ function TaskSummary({ analysis }: { analysis: AnalysisResult }) {
                 <SummaryItem label="Budget" value={extractedInfo.budget} />
                 <SummaryItem label="Timeline" value={extractedInfo.timeConstraints} />
                 <SummaryItem label="Priority" value={extractedInfo.preferredCriteria} />
-                <SummaryItem label="Phone Number" value={extractedInfo.phoneNumber} />
+                <SummaryItem label="Phone Numbers" value={phoneNumbers.length > 0 ? phoneNumbers.map(p => p.name ? `${p.name}: ${p.phoneNumber}` : p.phoneNumber).join(", ") : null} />
                 <SummaryItem label="Additional Notes" value={extractedInfo.additionalNotes} />
 
                 {/* Dynamically render any extra info detected by AI */}
@@ -440,40 +809,42 @@ function TaskSummary({ analysis }: { analysis: AnalysisResult }) {
                 </div>
             </div>
 
-            {/* Final Action */}
-            <div className="pt-4 space-y-8">
-                <button
-                    onClick={initiateCall}
-                    disabled={callState.status === "calling" || callState.status === "in-progress"}
-                    className="group relative w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-2xl text-sm font-semibold hover:bg-black dark:hover:bg-white transition-all overflow-hidden shadow-2xl shadow-zinc-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <span className="relative z-10 flex items-center justify-center gap-2">
-                        {callState.status === "calling" && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {callState.status === "in-progress" && <Phone className="w-4 h-4 animate-pulse" />}
-                        {callState.status === "idle" && <Phone className="w-4 h-4" />}
-                        {callState.status === "completed" && <CheckCircle className="w-4 h-4" />}
-                        {callState.status === "failed" && <XCircle className="w-4 h-4" />}
-                        {callState.status === "idle" && "Initiate Call Process"}
-                        {callState.status === "calling" && "Initiating..."}
-                        {callState.status === "in-progress" && "Call In Progress..."}
-                        {callState.status === "completed" && "Call Completed"}
-                        {callState.status === "failed" && "Retry Call"}
-                    </span>
-                </button>
+            {/* Final Action - only show if showCallButton is true */}
+            {showCallButton && (
+                <div className="pt-4 space-y-8">
+                    <button
+                        onClick={initiateCall}
+                        disabled={callState.status === "calling" || callState.status === "in-progress"}
+                        className="group relative w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-2xl text-sm font-semibold hover:bg-black dark:hover:bg-white transition-all overflow-hidden shadow-2xl shadow-zinc-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span className="relative z-10 flex items-center justify-center gap-2">
+                            {callState.status === "calling" && <Loader2 className="w-4 h-4 animate-spin" />}
+                            {callState.status === "in-progress" && <Phone className="w-4 h-4 animate-pulse" />}
+                            {callState.status === "idle" && <Phone className="w-4 h-4" />}
+                            {callState.status === "completed" && <CheckCircle className="w-4 h-4" />}
+                            {callState.status === "failed" && <XCircle className="w-4 h-4" />}
+                            {callState.status === "idle" && `Initiate Call${phoneNumbers.length > 1 ? ` (${phoneNumbers.length} numbers)` : ''}`}
+                            {callState.status === "calling" && "Initiating..."}
+                            {callState.status === "in-progress" && "Call In Progress..."}
+                            {callState.status === "completed" && "Call Completed"}
+                            {callState.status === "failed" && "Retry Call"}
+                        </span>
+                    </button>
 
-                <CallResultsDisplay callState={callState} />
+                    <CallResultsDisplay callState={callState} />
 
-                {callState.status === "idle" && (
-                    <div className="flex flex-col items-center text-center space-y-2">
-                        <p className="text-sm text-zinc-600 dark:text-zinc-200 font-medium tracking-tight">
-                            Everything look correct?
-                        </p>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 max-w-[80%] leading-relaxed">
-                            If you have more instructions or want to change anything, just type it below—I'm ready when you are.
-                        </p>
-                    </div>
-                )}
-            </div>
+                    {callState.status === "idle" && (
+                        <div className="flex flex-col items-center text-center space-y-2">
+                            <p className="text-sm text-zinc-600 dark:text-zinc-200 font-medium tracking-tight">
+                                Everything look correct?
+                            </p>
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500 max-w-[80%] leading-relaxed">
+                                If you have more instructions or want to change anything, just type it below—I'm ready when you are.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -666,9 +1037,23 @@ export function MainContent({ leftOpen, rightOpen }: MainContentProps) {
                                                         onSubmit={(answers) => handleSubmit(undefined, answers)}
                                                     />
                                                 </>
+                                            ) : typeof msg.content !== "string" && msg.content.hasAllRequiredInfo && (!msg.content.extractedInfo.phoneNumbers || msg.content.extractedInfo.phoneNumbers.length === 0) ? (
+                                                /* All info gathered, now collect phone numbers */
+                                                <>
+                                                    <TaskSummary analysis={msg.content} showCallButton={false} />
+                                                    <PhoneNumberCollector
+                                                        allowMultiple={msg.content.callType === "call_businesses"}
+                                                        serviceName={msg.content.extractedInfo.service}
+                                                        initialLocation={msg.content.extractedInfo.location}
+                                                        onSubmit={(phoneNumbers) => {
+                                                            const phoneList = phoneNumbers.map(p => p.name ? `${p.name}: ${p.phoneNumber}` : p.phoneNumber).join(", ");
+                                                            handleSubmit(undefined, `Here are the phone numbers to call: ${phoneList}`);
+                                                        }}
+                                                    />
+                                                </>
                                             ) : typeof msg.content !== "string" && msg.content.hasAllRequiredInfo ? (
-                                                /* If complete, show the premium summary */
-                                                <TaskSummary analysis={msg.content} />
+                                                /* If complete with phone numbers, show the premium summary with call button */
+                                                <TaskSummary analysis={msg.content} showCallButton={true} />
                                             ) : (
                                                 /* Fallback for strings / errors */
                                                 <div className="text-zinc-600 dark:text-zinc-300 leading-relaxed">

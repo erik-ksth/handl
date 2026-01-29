@@ -57,9 +57,11 @@ ANALYZE THE TASK FOR:
    - What service or product are they asking about?
    - What specific details about it? (brand, model, type, specifications)
 
-3. **Location** (for call_businesses type)
-   - Where should we search? (city, zip code, neighborhood, "near me")
-   - Any distance preferences?
+3. **Location** (OPTIONAL - extract ONLY specific locations)
+   - Location is collected separately via a location picker in the UI
+   - Only extract if user mentions a SPECIFIC location (city name, zip code, address, neighborhood name)
+   - Do NOT extract vague terms like "near me", "nearby", "close by", "in my area", "around here", "local" - set location to null for these
+   - Do NOT add location to missingInfo
 
 4. **Constraints & Preferences**
    - Budget limits or price range?
@@ -89,7 +91,7 @@ For task updates (responseType: "task_update"):
     "budget": "string or null",
     "timeConstraints": "string or null",
     "preferredCriteria": "cheapest | fastest | nearest | best_rated | null",
-    "phoneNumber": "string or null",
+    "phoneNumbers": [{"name": "business or person name (optional)", "phoneNumber": "phone number string"}],
     "questionsToAsk": ["array of questions"],
     "additionalNotes": "string or null",
     "userName": "string or null",
@@ -127,11 +129,17 @@ RULES FOR MISSING INFO:
 - Be specific about WHY the information is needed
 - Phrase questions naturally and conversationally
 - For service details: Ask about specific model, make, type, size, etc.
-- For location: Always required for call_businesses type
-- For call_specific_number: Phone number is REQUIRED
+- NEVER include location in missingInfo - location is collected separately via a location picker in the UI
+- NEVER include phone numbers in missingInfo - phone numbers are collected separately after all other info is gathered
 - ALWAYS include userName and callbackNumber in missingInfo as OPTIONAL fields if not yet provided
   - userName: "What name should I use when calling on your behalf?", type: "text", placeholder: "e.g., John"
   - callbackNumber: "What's a good callback number if they need to reach you?", type: "tel", placeholder: "e.g., (555) 123-4567"
+
+RULES FOR hasAllRequiredInfo:
+
+- Set "hasAllRequiredInfo" to true when ALL task-related info (service, details, etc.) is gathered, EXCLUDING location and phone numbers (both collected separately via UI)
+- Phone numbers are ALWAYS collected separately via the UI after hasAllRequiredInfo is true
+- When user provides phone numbers, add them to the phoneNumbers array in extractedInfo
 
 CRITICAL RULES FOR FIELD TYPES:
 
