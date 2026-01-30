@@ -41,10 +41,15 @@ export async function updateSession(request: NextRequest) {
         !request.nextUrl.pathname.startsWith('/auth')
     ) {
         // no user, potentially redirect to login page
-        // For now, we only refresh the session.
-        // const url = request.nextUrl.clone()
-        // url.pathname = '/login'
-        // return NextResponse.redirect(url)
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        return NextResponse.redirect(url)
+    }
+
+    if (user && request.nextUrl.pathname.startsWith('/login')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/'
+        return NextResponse.redirect(url)
     }
 
     // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
