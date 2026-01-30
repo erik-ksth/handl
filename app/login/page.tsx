@@ -156,7 +156,7 @@ export default function LoginPage() {
         <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white dark:bg-black font-sans selection:bg-zinc-200 dark:selection:bg-zinc-800">
 
             {/* Right Side - Login Form (Fixed) */}
-            <div className="w-full lg:w-[45%] flex flex-col items-center justify-center p-8 lg:p-20 order-1 lg:order-2 bg-white dark:bg-black z-20 shadow-[-10px_0_30px_-10px_rgba(0,0,0,0.05)] dark:shadow-none">
+            <div className="w-full lg:w-[45%] flex flex-col items-center justify-center p-8 lg:p-20 order-1 lg:order-2 bg-white dark:bg-black z-20 ">
                 <div className="w-full max-w-sm space-y-10">
                     <div className="text-center space-y-2">
                         <motion.div
@@ -228,136 +228,136 @@ export default function LoginPage() {
                     transition={{ duration: 1.5 }}
                 />
 
-                <div className="relative z-10 h-full flex flex-col justify-center px-8 lg:px-24 py-12">
+                <div className="relative z-10 h-full flex flex-col justify-center px-8 lg:px-12 py-12">
+                    <div className="w-full max-w-xl mx-auto">
+                        {/* Header */}
+                        <motion.div
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mb-12 lg:mb-16"
+                        >
+                            <h2 className="text-4xl lg:text-5xl font-bold tracking-tight text-zinc-900 dark:text-white mb-4">
+                                From thought<br />to done.
+                            </h2>
+                            <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-md">
+                                Your personal AI workforce that calls, coordinates, and gets things done.
+                            </p>
+                        </motion.div>
 
-                    {/* Header */}
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mb-12 lg:mb-16"
-                    >
-                        <h2 className="text-4xl lg:text-5xl font-bold tracking-tight text-zinc-900 dark:text-white mb-4">
-                            From thought<br />to done.
-                        </h2>
-                        <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-md">
-                            Your personal AI workforce that calls, coordinates, and gets things done.
-                        </p>
-                    </motion.div>
+                        {/* Interactive Timeline Container */}
+                        <div
+                            className="relative min-h-[340px]"
+                            onMouseEnter={() => setIsPaused(true)}
+                            onMouseLeave={() => setIsPaused(false)}
+                        >
+                            {/* Connecting Line - Animated Beam */}
+                            <div className="absolute left-[27px] top-4 bottom-4 w-[2px] bg-zinc-200 dark:bg-zinc-800/50 hidden sm:block overflow-hidden rounded-full">
+                                <motion.div
+                                    className={`w-full h-[30%] ${currentColor.bg} absolute top-0 opacity-50 blur-[2px]`}
+                                    animate={{ top: ["-30%", "130%"] }}
+                                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                />
+                            </div>
 
-                    {/* Interactive Timeline Container */}
-                    <div
-                        className="relative min-h-[340px]"
-                        onMouseEnter={() => setIsPaused(true)}
-                        onMouseLeave={() => setIsPaused(false)}
-                    >
-                        {/* Connecting Line - Animated Beam */}
-                        <div className="absolute left-[27px] top-4 bottom-4 w-[2px] bg-zinc-200 dark:bg-zinc-800/50 hidden sm:block overflow-hidden rounded-full">
-                            <motion.div
-                                className={`w-full h-[30%] ${currentColor.bg} absolute top-0 opacity-50 blur-[2px]`}
-                                animate={{ top: ["-30%", "130%"] }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                            />
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={currentIndex}
+                                    className="space-y-8"
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit="exit"
+                                    variants={{
+                                        hidden: { opacity: 0 },
+                                        visible: { opacity: 1, transition: { staggerChildren: 0.3 } },
+                                        exit: { opacity: 0, transition: { duration: 0.2 } }
+                                    }}
+                                >
+                                    {/* Step 1: User Input */}
+                                    <motion.div
+                                        variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}
+                                        className="relative flex gap-6 items-center group"
+                                    >
+                                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-sm flex items-center justify-center text-zinc-500 relative z-10">
+                                            <MessageSquare className="w-6 h-6" />
+                                        </div>
+                                        <div className="bg-white/60 dark:bg-zinc-900/40 backdrop-blur-md p-4 rounded-2xl border border-white/50 dark:border-white/5 shadow-sm flex-1 max-w-md">
+                                            <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{currentScenario.steps.you.title}</div>
+                                            <div className="text-zinc-900 dark:text-zinc-200 font-medium">
+                                                <TypewriterText text={`"${currentScenario.steps.you.text}"`} delay={0.2} />
+                                            </div>
+                                        </div>
+                                    </motion.div>
+
+                                    {/* Step 2: Agent Action */}
+                                    <motion.div
+                                        variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}
+                                        className="relative flex gap-6 items-center"
+                                    >
+                                        <div className={`flex-shrink-0 w-14 h-14 rounded-2xl ${currentColor.lightBg} dark:bg-zinc-800/80 border ${currentColor.border} dark:border-zinc-700/50 flex items-center justify-center ${currentColor.text} relative z-10`}>
+                                            <currentScenario.icon className="w-6 h-6" />
+                                            <motion.div
+                                                className={`absolute inset-0 rounded-2xl border-2 ${currentColor.border} opacity-0`}
+                                                animate={{ opacity: [0, 0.4, 0], scale: [1, 1.1, 1] }}
+                                                transition={{ repeat: Infinity, duration: 2 }}
+                                            />
+                                        </div>
+                                        <div className={`bg-gradient-to-r from-white/80 to-transparent dark:from-zinc-900/60 dark:to-transparent backdrop-blur-md p-4 rounded-2xl border ${currentColor.border} dark:border-white/5 shadow-sm flex-1 max-w-md`}>
+                                            <div className={`flex items-center gap-2 text-[11px] font-bold ${currentColor.text} uppercase tracking-wider mb-1`}>
+                                                <Sparkles className="w-3 h-3 animate-pulse" />
+                                                <span>{currentScenario.steps.agent.title}</span>
+                                            </div>
+                                            <div className="text-zinc-600 dark:text-zinc-300 text-sm">
+                                                <TypewriterText text={currentScenario.steps.agent.text} delay={1.2} />
+                                            </div>
+                                        </div>
+                                    </motion.div>
+
+                                    {/* Step 3: Result */}
+                                    <motion.div
+                                        variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}
+                                        className="relative flex gap-6 items-center"
+                                    >
+                                        <div className="flex-shrink-0 w-14 h-14 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center text-white dark:text-zinc-900 shadow-lg shadow-zinc-900/10 relative z-10">
+                                            <Check className="w-6 h-6" />
+                                        </div>
+                                        <div className="bg-zinc-900/5 dark:bg-white/5 p-4 rounded-2xl border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm flex-1 max-w-md">
+                                            <div className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">{currentScenario.steps.done.title}</div>
+                                            <div className="text-zinc-900 dark:text-white font-semibold">
+                                                <TypewriterText text={currentScenario.steps.done.text} delay={2.2} />
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                </motion.div>
+                            </AnimatePresence>
                         </div>
 
-                        <AnimatePresence mode="wait">
-                            <motion.div
-                                key={currentIndex}
-                                className="space-y-8"
-                                initial="hidden"
-                                animate="visible"
-                                exit="exit"
-                                variants={{
-                                    hidden: { opacity: 0 },
-                                    visible: { opacity: 1, transition: { staggerChildren: 0.3 } },
-                                    exit: { opacity: 0, transition: { duration: 0.2 } }
-                                }}
-                            >
-                                {/* Step 1: User Input */}
-                                <motion.div
-                                    variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}
-                                    className="relative flex gap-6 items-center group"
+                        {/* Timeline Controls */}
+                        <div className="mt-8 flex items-center gap-3">
+                            {scenarios.map((_, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setCurrentIndex(idx)}
+                                    className={`relative h-1.5 rounded-full transition-all duration-300 cursor-pointer overflow-hidden ${idx === currentIndex
+                                        ? "w-12 bg-zinc-200 dark:bg-zinc-800"
+                                        : "w-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700"
+                                        }`}
                                 >
-                                    <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-sm flex items-center justify-center text-zinc-500 relative z-10">
-                                        <MessageSquare className="w-6 h-6" />
-                                    </div>
-                                    <div className="bg-white/60 dark:bg-zinc-900/40 backdrop-blur-md p-4 rounded-2xl border border-white/50 dark:border-white/5 shadow-sm flex-1 max-w-md">
-                                        <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">{currentScenario.steps.you.title}</div>
-                                        <div className="text-zinc-900 dark:text-zinc-200 font-medium">
-                                            <TypewriterText text={`"${currentScenario.steps.you.text}"`} delay={0.2} />
-                                        </div>
-                                    </div>
-                                </motion.div>
-
-                                {/* Step 2: Agent Action */}
-                                <motion.div
-                                    variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}
-                                    className="relative flex gap-6 items-center"
-                                >
-                                    <div className={`flex-shrink-0 w-14 h-14 rounded-2xl ${currentColor.lightBg} dark:bg-zinc-800/80 border ${currentColor.border} dark:border-zinc-700/50 flex items-center justify-center ${currentColor.text} relative z-10`}>
-                                        <currentScenario.icon className="w-6 h-6" />
+                                    {idx === currentIndex && (
                                         <motion.div
-                                            className={`absolute inset-0 rounded-2xl border-2 ${currentColor.border} opacity-0`}
-                                            animate={{ opacity: [0, 0.4, 0], scale: [1, 1.1, 1] }}
-                                            transition={{ repeat: Infinity, duration: 2 }}
+                                            className={`absolute inset-0 ${currentColor.bg}`}
+                                            initial={{ width: "0%" }}
+                                            animate={{ width: isPaused ? "100%" : "100%" }}
+                                            // When paused, we just hold full, when running we normally animate,
+                                            // but since simple setInterval flips it, we can just fill it.
+                                            // For true progress bar we'd need a requestAnimationFrame.
+                                            // Visual style: simpler "active state" fill.
+                                            layoutId="active-pill"
                                         />
-                                    </div>
-                                    <div className={`bg-gradient-to-r from-white/80 to-transparent dark:from-zinc-900/60 dark:to-transparent backdrop-blur-md p-4 rounded-2xl border ${currentColor.border} dark:border-white/5 shadow-sm flex-1 max-w-md`}>
-                                        <div className={`flex items-center gap-2 text-[11px] font-bold ${currentColor.text} uppercase tracking-wider mb-1`}>
-                                            <Sparkles className="w-3 h-3 animate-pulse" />
-                                            <span>{currentScenario.steps.agent.title}</span>
-                                        </div>
-                                        <div className="text-zinc-600 dark:text-zinc-300 text-sm">
-                                            <TypewriterText text={currentScenario.steps.agent.text} delay={1.2} />
-                                        </div>
-                                    </div>
-                                </motion.div>
-
-                                {/* Step 3: Result */}
-                                <motion.div
-                                    variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}
-                                    className="relative flex gap-6 items-center"
-                                >
-                                    <div className="flex-shrink-0 w-14 h-14 rounded-full bg-zinc-900 dark:bg-white flex items-center justify-center text-white dark:text-zinc-900 shadow-lg shadow-zinc-900/10 relative z-10">
-                                        <Check className="w-6 h-6" />
-                                    </div>
-                                    <div className="bg-zinc-900/5 dark:bg-white/5 p-4 rounded-2xl border border-zinc-200/50 dark:border-zinc-700/50 shadow-sm flex-1 max-w-md">
-                                        <div className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">{currentScenario.steps.done.title}</div>
-                                        <div className="text-zinc-900 dark:text-white font-semibold">
-                                            <TypewriterText text={currentScenario.steps.done.text} delay={2.2} />
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            </motion.div>
-                        </AnimatePresence>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-
-                    {/* Timeline Controls */}
-                    <div className="mt-8 flex items-center gap-3">
-                        {scenarios.map((_, idx) => (
-                            <button
-                                key={idx}
-                                onClick={() => setCurrentIndex(idx)}
-                                className={`relative h-1.5 rounded-full transition-all duration-300 cursor-pointer overflow-hidden ${idx === currentIndex
-                                    ? "w-12 bg-zinc-200 dark:bg-zinc-800"
-                                    : "w-2 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700"
-                                    }`}
-                            >
-                                {idx === currentIndex && (
-                                    <motion.div
-                                        className={`absolute inset-0 ${currentColor.bg}`}
-                                        initial={{ width: "0%" }}
-                                        animate={{ width: isPaused ? "100%" : "100%" }}
-                                        // When paused, we just hold full, when running we normally animate, 
-                                        // but since simple setInterval flips it, we can just fill it. 
-                                        // For true progress bar we'd need a requestAnimationFrame. 
-                                        // Visual style: simpler "active state" fill.
-                                        layoutId="active-pill"
-                                    />
-                                )}
-                            </button>
-                        ))}
-                    </div>
-
                 </div>
             </div>
         </div>

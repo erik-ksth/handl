@@ -766,11 +766,19 @@ interface CallState {
     };
 }
 
-function CallResultsDisplay({ callState }: { callState: CallState }) {
+function CallResultsDisplay({ callState, label, analysis }: { callState: CallState; label?: string; analysis?: any }) {
     if (callState.status === "idle") return null;
 
     return (
         <div className="mt-6 space-y-4">
+            {/* Business name / Label if multiple */}
+            {label && (
+                <div className="flex items-center gap-2">
+                    <div className="w-1 h-4 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{label}</span>
+                </div>
+            )}
+
             {/* Status indicator */}
             <div className="flex items-center gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800">
                 {callState.status === "calling" && (
@@ -799,9 +807,27 @@ function CallResultsDisplay({ callState }: { callState: CallState }) {
                 )}
             </div>
 
+            {/* Analysis Summary (Iterative) */}
+            {analysis && (
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-500" />
+                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Key Insights</span>
+                    </div>
+                    <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                        {analysis.summary}
+                    </p>
+                    {analysis.price && (
+                        <div className="inline-flex items-center px-2 py-1 rounded bg-amber-200/50 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300 text-xs font-bold">
+                            Quote: {analysis.price}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Results */}
             {callState.status === "completed" && callState.result && (
-                <div className="space-y-4">
+                <div className="space-y-4 ml-3 border-l border-zinc-200 dark:border-zinc-800 pl-4 py-2">
                     {/* Recording */}
                     {callState.result.recordingUrl && (
                         <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 space-y-2">
@@ -843,13 +869,56 @@ function CallResultsDisplay({ callState }: { callState: CallState }) {
     );
 }
 
-function TaskSummary({ analysis, showCallButton = true }: { analysis: AnalysisResult; showCallButton?: boolean }) {
+function TaskSummary({ analysis: initialAnalysis, showCallButton = true }: { analysis: AnalysisResult; showCallButton?: boolean }) {
+    const [analysis, setAnalysis] = useState(initialAnalysis);
     const { extractedInfo, callObjective } = analysis;
     const { questionsToAsk = [], phoneNumbers = [] } = extractedInfo;
-    const [callState, setCallState] = useState<CallState>({ status: "idle" });
 
-    const pollCallStatus = useCallback(async (callId: string) => {
-        const maxAttempts = 60; // 5 minutes max (5s intervals)
+    // Sequential states
+    const [callStates, setCallStates] = useState<Record<string, CallState>>({});
+    const [callAnalyses, setCallAnalyses] = useState<Record<string, any>>({});
+    const [currentCallIndex, setCurrentCallIndex] = useState<number | null>(null);
+    const [isPaused, setIsPaused] = useState(false);
+    const [iterativeQuestions, setIterativeQuestions] = useState<any[]>([]);
+    const [bestPrice, setBestPrice] = useState<string | null>(null);
+    const [negotiationInsight, setNegotiationInsight] = useState<string | null>(null);
+
+    const performCallAnalysis = async (transcript: string, phoneNum: string) => {
+        try {
+            const response = await fetch("/api/analyze-call", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    transcript,
+                    currentTaskInfo: extractedInfo
+                }),
+            });
+            const data = await response.json();
+            if (data.analysis) {
+                setCallAnalyses(prev => ({ ...prev, [phoneNum]: data.analysis }));
+
+                // Track best price logic
+                if (data.analysis.price) {
+                    setBestPrice(data.analysis.price);
+                    setNegotiationInsight(data.analysis.insights);
+                }
+
+                // Handle new questions
+                if (data.analysis.hasNewQuestions && data.analysis.newQuestions.length > 0) {
+                    setIterativeQuestions(data.analysis.newQuestions);
+                    setIsPaused(true);
+                    return true; // Paused
+                }
+            }
+            return false;
+        } catch (error) {
+            console.error("Failed to analyze call:", error);
+            return false;
+        }
+    };
+
+    const pollCallStatus = useCallback(async (callId: string, phoneNum: string) => {
+        const maxAttempts = 60;
         let attempts = 0;
 
         const poll = async () => {
@@ -858,59 +927,81 @@ function TaskSummary({ analysis, showCallButton = true }: { analysis: AnalysisRe
                 const data = await response.json();
 
                 if (data.error) {
-                    setCallState({ status: "failed", error: data.error });
+                    setCallStates(prev => ({ ...prev, [phoneNum]: { status: "failed", error: data.error } }));
                     return;
                 }
 
                 if (data.status === "ended") {
-                    setCallState({
-                        status: "completed",
-                        callId,
-                        result: {
-                            transcript: data.transcript,
-                            recordingUrl: data.recordingUrl,
-                            analysis: data.analysis,
-                            endedReason: data.endedReason,
-                            cost: data.cost,
-                        },
-                    });
+                    setCallStates(prev => ({
+                        ...prev,
+                        [phoneNum]: {
+                            status: "completed",
+                            callId,
+                            result: {
+                                transcript: data.transcript,
+                                recordingUrl: data.recordingUrl,
+                                analysis: data.analysis,
+                                endedReason: data.endedReason,
+                                cost: data.cost,
+                            },
+                        }
+                    }));
+
+                    // Sequence logic: Analyze results then move to next or pause
+                    const paused = await performCallAnalysis(data.transcript || "", phoneNum);
+
+                    if (!paused && currentCallIndex !== null && currentCallIndex < phoneNumbers.length - 1) {
+                        // Automatically move to next if not paused
+                        startCallAtIndex(currentCallIndex + 1);
+                    }
                     return;
                 }
 
                 if (data.status === "in-progress" || data.status === "ringing") {
-                    setCallState({ status: "in-progress", callId });
+                    setCallStates(prev => ({ ...prev, [phoneNum]: { status: "in-progress", callId } }));
                 }
 
                 attempts++;
                 if (attempts < maxAttempts) {
                     setTimeout(poll, 5000);
                 } else {
-                    setCallState({ status: "failed", error: "Call timed out" });
+                    setCallStates(prev => ({ ...prev, [phoneNum]: { status: "failed", error: "Call timed out" } }));
                 }
             } catch (error) {
-                setCallState({ status: "failed", error: "Failed to check call status" });
+                setCallStates(prev => ({ ...prev, [phoneNum]: { status: "failed", error: "Failed to check call status" } }));
             }
         };
 
         poll();
-    }, []);
+    }, [currentCallIndex, phoneNumbers, extractedInfo]);
 
-    const initiateCall = async () => {
-        if (!phoneNumbers || phoneNumbers.length === 0) {
-            setCallState({ status: "failed", error: "No phone numbers provided" });
-            return;
-        }
+    const startCallAtIndex = async (index: number, currentAnalysis = analysis) => {
+        if (index >= phoneNumbers.length) return;
 
-        setCallState({ status: "calling" });
+        const p = phoneNumbers[index];
+        const { extractedInfo, callObjective } = currentAnalysis;
+        setCurrentCallIndex(index);
+        setIsPaused(false);
+        setIterativeQuestions([]);
+
+        setCallStates(prev => ({ ...prev, [p.phoneNumber]: { status: "calling" } }));
 
         try {
-            // For now, call the first number. TODO: Support multiple calls
+            // Construct context-aware objective
+            let enhancedObjective = callObjective || "Gather information";
+            if (bestPrice) {
+                enhancedObjective += `. NOTE: We already have a quote for ${bestPrice}. Try to see if they can beat this price or offer better value.`;
+            }
+            if (negotiationInsight) {
+                enhancedObjective += ` Insights from previous call: ${negotiationInsight}`;
+            }
+
             const response = await fetch("/api/vapi", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    phoneNumber: phoneNumbers[0].phoneNumber,
-                    callObjective: callObjective || "Gather information",
+                    phoneNumber: p.phoneNumber,
+                    callObjective: enhancedObjective,
                     serviceName: extractedInfo.service || "service",
                     serviceDetails: extractedInfo.serviceDetails,
                     questionsToAsk: questionsToAsk,
@@ -922,18 +1013,46 @@ function TaskSummary({ analysis, showCallButton = true }: { analysis: AnalysisRe
             });
 
             const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Failed to initiate call");
 
-            if (!response.ok) {
-                throw new Error(data.error || "Failed to initiate call");
-            }
-
-            setCallState({ status: "in-progress", callId: data.call.id });
-            pollCallStatus(data.call.id);
+            setCallStates(prev => ({
+                ...prev,
+                [p.phoneNumber]: { status: "in-progress", callId: data.call.id }
+            }));
+            pollCallStatus(data.call.id, p.phoneNumber);
         } catch (error) {
-            setCallState({
-                status: "failed",
-                error: error instanceof Error ? error.message : "Failed to initiate call",
-            });
+            setCallStates(prev => ({
+                ...prev,
+                [p.phoneNumber]: {
+                    status: "failed",
+                    error: error instanceof Error ? error.message : "Failed to initiate call",
+                }
+            }));
+        }
+    };
+
+    const initiateCall = async () => {
+        if (!phoneNumbers || phoneNumbers.length === 0) return;
+        startCallAtIndex(0);
+    };
+
+    const handleIterativeInfoSubmit = (answers: string) => {
+        // Update the analysis state with new information from the user
+        const newAnalysis = {
+            ...analysis,
+            extractedInfo: {
+                ...analysis.extractedInfo,
+                serviceDetails: (analysis.extractedInfo.serviceDetails || "") + "\n\nUpdated info from user:\n" + answers,
+            }
+        };
+
+        setAnalysis(newAnalysis);
+        setIsPaused(false);
+        setIterativeQuestions([]);
+
+        // Redial the same business to complete the task with the new info
+        if (currentCallIndex !== null) {
+            startCallAtIndex(currentCallIndex, newAnalysis);
         }
     };
 
@@ -994,28 +1113,46 @@ function TaskSummary({ analysis, showCallButton = true }: { analysis: AnalysisRe
             {/* Final Action - only show if showCallButton is true */}
             {showCallButton && (
                 <div className="pt-4 space-y-8">
-                    <button
-                        onClick={initiateCall}
-                        disabled={callState.status === "calling" || callState.status === "in-progress"}
-                        className="group relative w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-2xl text-sm font-semibold hover:bg-black dark:hover:bg-white transition-all overflow-hidden shadow-2xl shadow-zinc-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <span className="relative z-10 flex items-center justify-center gap-2">
-                            {callState.status === "calling" && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {callState.status === "in-progress" && <Phone className="w-4 h-4 animate-pulse" />}
-                            {callState.status === "idle" && <Phone className="w-4 h-4" />}
-                            {callState.status === "completed" && <CheckCircle className="w-4 h-4" />}
-                            {callState.status === "failed" && <XCircle className="w-4 h-4" />}
-                            {callState.status === "idle" && `Initiate Call${phoneNumbers.length > 1 ? ` (${phoneNumbers.length} numbers)` : ''}`}
-                            {callState.status === "calling" && "Initiating..."}
-                            {callState.status === "in-progress" && "Call In Progress..."}
-                            {callState.status === "completed" && "Call Completed"}
-                            {callState.status === "failed" && "Retry Call"}
-                        </span>
-                    </button>
+                    {currentCallIndex === null && (
+                        <button
+                            onClick={initiateCall}
+                            className="group relative w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-2xl text-sm font-semibold hover:bg-black dark:hover:bg-white transition-all overflow-hidden shadow-2xl shadow-zinc-200 dark:shadow-none"
+                        >
+                            <span className="relative z-10 flex items-center justify-center gap-2">
+                                <Phone className="w-4 h-4" />
+                                {`Start Calling (${phoneNumbers.length})`}
+                            </span>
+                        </button>
+                    )}
 
-                    <CallResultsDisplay callState={callState} />
+                    {/* Sequential Progress */}
+                    <div className="space-y-6">
+                        {phoneNumbers.map((p, i) => {
+                            const state = callStates[p.phoneNumber];
+                            const analysisRecord = callAnalyses[p.phoneNumber];
+                            if (!state) return null;
+                            return (
+                                <CallResultsDisplay
+                                    key={i}
+                                    callState={state}
+                                    label={p.name || p.phoneNumber}
+                                    analysis={analysisRecord}
+                                />
+                            );
+                        })}
+                    </div>
 
-                    {callState.status === "idle" && (
+                    {/* Iterative Questions Form */}
+                    {isPaused && iterativeQuestions.length > 0 && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <AnalysisFormGroup
+                                missingInfo={iterativeQuestions}
+                                onSubmit={handleIterativeInfoSubmit}
+                            />
+                        </div>
+                    )}
+
+                    {currentCallIndex === null && (
                         <div className="flex flex-col items-center text-center space-y-2">
                             <p className="text-sm text-zinc-600 dark:text-zinc-200 font-medium tracking-tight">
                                 Everything look correct?
