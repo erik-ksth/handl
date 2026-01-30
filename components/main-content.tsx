@@ -218,15 +218,15 @@ interface BusinessResult {
     isOpen: boolean | null;
 }
 
-function PhoneNumberCollector({ 
-    allowMultiple, 
+function PhoneNumberCollector({
+    allowMultiple,
     onSubmit,
     serviceName,
     initialLocation,
     requestedCount = 5,
     preferredCriteria
-}: { 
-    allowMultiple: boolean; 
+}: {
+    allowMultiple: boolean;
     onSubmit: (phoneNumbers: Array<{ name?: string; phoneNumber: string }>) => void;
     serviceName?: string | null;
     initialLocation?: string | null;
@@ -330,20 +330,35 @@ function PhoneNumberCollector({
     };
 
     const handleEntryChange = (index: number, field: 'name' | 'phoneNumber', value: string) => {
-        setPhoneEntries(prev => prev.map((entry, i) => 
+        setPhoneEntries(prev => prev.map((entry, i) =>
             i === index ? { ...entry, [field]: value } : entry
         ));
     };
 
-    const validEntries = phoneEntries.filter(entry => entry.phoneNumber.trim() !== '');
-    const isValid = validEntries.length > 0;
+    const validManualEntries = phoneEntries.filter(entry => entry.phoneNumber.trim() !== '');
+    const selectedBusinessEntries = searchResults.filter(
+        b => selectedBusinesses.has(b.placeId) && b.phoneNumber
+    );
+    const totalCount = validManualEntries.length + selectedBusinessEntries.length;
+    const isValid = totalCount > 0;
 
     const handleSubmit = () => {
-        setIsSubmitted(true);
-        onSubmit(validEntries.map(entry => ({
+        const manual = validManualEntries.map(entry => ({
             name: entry.name.trim() || undefined,
             phoneNumber: entry.phoneNumber.trim()
-        })));
+        }));
+
+        const selected = selectedBusinessEntries.map(b => ({
+            name: b.name,
+            phoneNumber: b.phoneNumber!
+        }));
+
+        const combined = [...manual, ...selected];
+
+        if (combined.length > 0) {
+            setIsSubmitted(true);
+            onSubmit(combined);
+        }
     };
 
     const handleUseCurrentLocation = () => {
@@ -388,12 +403,12 @@ function PhoneNumberCollector({
 
     const handleSearchBusinesses = async () => {
         if (!locationInput.trim()) return;
-        
+
         setIsSearching(true);
         setSearchError(null);
         setSearchResults([]);
         setSelectedBusinesses(new Set());
-        
+
         try {
             const params = new URLSearchParams({
                 query: serviceName || 'business',
@@ -401,15 +416,15 @@ function PhoneNumberCollector({
                 limit: requestedCount.toString(),
                 ...(preferredCriteria && { preferredCriteria }),
             });
-            
+
             const response = await fetch(`/api/places/search?${params}`);
             const data = await response.json();
-            
+
             if (data.error) {
                 setSearchError(data.error);
                 return;
             }
-            
+
             if (data.results && data.results.length > 0) {
                 setSearchResults(data.results);
                 // Auto-select all businesses with phone numbers
@@ -442,22 +457,10 @@ function PhoneNumberCollector({
     };
 
     const handleSubmitSelectedBusinesses = () => {
-        const selected = searchResults
-            .filter(b => selectedBusinesses.has(b.placeId) && b.phoneNumber)
-            .map(b => ({
-                name: b.name,
-                phoneNumber: b.phoneNumber!
-            }));
-        
-        if (selected.length > 0) {
-            setIsSubmitted(true);
-            onSubmit(selected);
-        }
+        handleSubmit();
     };
 
-    const selectedWithPhones = searchResults.filter(
-        b => selectedBusinesses.has(b.placeId) && b.phoneNumber
-    ).length;
+    const selectedWithPhones = selectedBusinessEntries.length;
 
     if (isSubmitted) return null;
 
@@ -588,28 +591,26 @@ function PhoneNumberCollector({
                             {selectedWithPhones} selected
                         </span>
                     </div>
-                    
+
                     <div className="space-y-2 max-h-80 overflow-y-auto">
                         {searchResults.map((business) => (
                             <div
                                 key={business.placeId}
                                 onClick={() => business.phoneNumber && toggleBusinessSelection(business.placeId)}
-                                className={`p-3 rounded-xl border transition-all ${
-                                    !business.phoneNumber
-                                        ? 'bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 opacity-60 cursor-not-allowed'
-                                        : selectedBusinesses.has(business.placeId)
+                                className={`p-3 rounded-xl border transition-all ${!business.phoneNumber
+                                    ? 'bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 opacity-60 cursor-not-allowed'
+                                    : selectedBusinesses.has(business.placeId)
                                         ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 cursor-pointer'
                                         : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 cursor-pointer'
-                                }`}
+                                    }`}
                             >
                                 <div className="flex items-start gap-3">
-                                    <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                        !business.phoneNumber
-                                            ? 'border-zinc-300 dark:border-zinc-700'
-                                            : selectedBusinesses.has(business.placeId)
+                                    <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${!business.phoneNumber
+                                        ? 'border-zinc-300 dark:border-zinc-700'
+                                        : selectedBusinesses.has(business.placeId)
                                             ? 'border-green-500 bg-green-500'
                                             : 'border-zinc-300 dark:border-zinc-600'
-                                    }`}>
+                                        }`}>
                                         {selectedBusinesses.has(business.placeId) && business.phoneNumber && (
                                             <Check className="w-3 h-3 text-white" />
                                         )}
@@ -620,11 +621,10 @@ function PhoneNumberCollector({
                                                 {business.name}
                                             </span>
                                             {business.isOpen !== null && (
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                                                    business.isOpen
-                                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                                                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                                                }`}>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${business.isOpen
+                                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                                    }`}>
                                                     {business.isOpen ? 'Open' : 'Closed'}
                                                 </span>
                                             )}
@@ -661,7 +661,7 @@ function PhoneNumberCollector({
                         ))}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center justify-start pt-2">
                         <button
                             onClick={() => {
                                 setSearchResults([]);
@@ -671,13 +671,6 @@ function PhoneNumberCollector({
                             className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
                         >
                             Search again
-                        </button>
-                        <button
-                            onClick={handleSubmitSelectedBusinesses}
-                            disabled={selectedWithPhones === 0}
-                            className="px-6 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                            Call {selectedWithPhones} Business{selectedWithPhones !== 1 ? 'es' : ''}
                         </button>
                     </div>
                 </div>
@@ -699,7 +692,7 @@ function PhoneNumberCollector({
                 </div>
             )}
 
-            <div className={`space-y-3 ${searchResults.length > 0 ? 'hidden' : ''}`}>
+            <div className="space-y-3">
                 {phoneEntries.map((entry, index) => (
                     <div key={index} className="flex gap-2 items-center">
                         {allowMultiple && (
@@ -741,23 +734,21 @@ function PhoneNumberCollector({
             )}
 
             <p className="text-xs text-zinc-400 italic">
-                {allowMultiple 
+                {allowMultiple
                     ? "Add the phone numbers of businesses you'd like us to call. We'll contact each one to gather the information you need."
                     : "Enter the phone number you'd like us to call."
                 }
             </p>
 
-            {searchResults.length === 0 && (
-                <div className="flex justify-end pt-4">
-                    <button
-                        onClick={handleSubmit}
-                        disabled={!isValid}
-                        className="px-8 py-3 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-md shadow-zinc-200 dark:shadow-none"
-                    >
-                        {allowMultiple ? `Start Calling ${validEntries.length} Number${validEntries.length !== 1 ? 's' : ''}` : "Continue"}
-                    </button>
-                </div>
-            )}
+            <div className="flex justify-end pt-4">
+                <button
+                    onClick={handleSubmit}
+                    disabled={!isValid}
+                    className="px-8 py-3 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-md shadow-zinc-200 dark:shadow-none"
+                >
+                    {allowMultiple ? `Start Calling ${totalCount} Number${totalCount !== 1 ? 's' : ''}` : "Continue"}
+                </button>
+            </div>
         </div>
     );
 }
