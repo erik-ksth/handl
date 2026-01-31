@@ -27,14 +27,14 @@ Your job is to analyze the transcript of a phone call made by our AI assistant t
 The assistant was calling about: ${JSON.stringify(currentTaskInfo)}
 
 # OBJECTIVES
-1. **Summarize**: Provide a concise 2-3 sentence summary of the call outcome.
+1. **Summarize**: Provide an extremely concise summary of the call outcome in 15 words or less. No conversational filler or narrative. Just the facts (e.g., "Confirmed booking for Tuesday 2 PM at $85.").
 2. **Extract Price**: If any specific price, quote, or price range was mentioned, extract it. (Format: "number" or "min-max").
 3. **Identify Missing Info**: Did the business ask for information we didn't have? Or did the call reveal that more details are needed from the user before we can proceed effectively with other businesses?
-4. **Negotiation Context**: What information from this call could be useful for the NEXT call to a different business? (e.g., "They quoted $100 but said they can do it today").
+4. **Strategic Leverage**: What information from this call can be used as leverage in the NEXT call? (e.g., "Business A quoted $100; ask Business B to beat it").
 
 # RESPONSE FORMAT (JSON)
 {
-  "summary": "Clear summary of the call",
+  "summary": "Clear, factual summary of the call outcome (15 words max)",
   "price": "number or string or null",
   "hasNewQuestions": boolean,
   "newQuestions": [
@@ -48,7 +48,7 @@ The assistant was calling about: ${JSON.stringify(currentTaskInfo)}
       "placeholder": "example input"
     }
   ],
-  "insights": "Key findings for the next call"
+  "insights": "Strategic leverage gained from this call to use in future calls (e.g., 'Use $85 price to negotiate with Business B')"
 }
 
 # RULES FOR NEW QUESTIONS

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText, Plus, Trash2, Search, MapPin, Navigation, Star, Clock, Check } from "lucide-react";
+import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText, Plus, Trash2, Search, MapPin, Navigation, Star, Clock, Check, ChevronDown, ChevronUp } from "lucide-react";
 
 interface AnalysisResult {
     responseType?: "task_update" | "conversation";
@@ -767,102 +767,139 @@ interface CallState {
 }
 
 function CallResultsDisplay({ callState, label, analysis }: { callState: CallState; label?: string; analysis?: any }) {
+    const [showTranscript, setShowTranscript] = useState(false);
     if (callState.status === "idle") return null;
 
     return (
-        <div className="mt-6 space-y-4">
-            {/* Business name / Label if multiple */}
+        <div className="mt-8 space-y-6">
+            {/* Header / Business Name */}
             {label && (
-                <div className="flex items-center gap-2">
-                    <div className="w-1 h-4 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{label}</span>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-6 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
+                        <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{label}</span>
+                    </div>
+                    {callState.status === "completed" && (
+                        <div className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-[10px] font-bold uppercase tracking-widest border border-green-500/20">
+                            Success
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* Status indicator */}
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800">
-                {callState.status === "calling" && (
-                    <>
-                        <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                        <span className="text-sm text-zinc-600 dark:text-zinc-400">Initiating call...</span>
-                    </>
-                )}
-                {callState.status === "in-progress" && (
-                    <>
-                        <Phone className="w-5 h-5 text-green-500 animate-pulse" />
-                        <span className="text-sm text-zinc-600 dark:text-zinc-400">Call in progress...</span>
-                    </>
-                )}
-                {callState.status === "completed" && (
-                    <>
-                        <CheckCircle className="w-5 h-5 text-green-500" />
-                        <span className="text-sm text-zinc-600 dark:text-zinc-400">Call completed</span>
-                    </>
-                )}
-                {callState.status === "failed" && (
-                    <>
-                        <XCircle className="w-5 h-5 text-red-500" />
-                        <span className="text-sm text-red-600 dark:text-red-400">{callState.error || "Call failed"}</span>
-                    </>
-                )}
-            </div>
-
-            {/* Analysis Summary (Iterative) */}
-            {analysis && (
-                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 space-y-2">
-                    <div className="flex items-center gap-2">
-                        <Star className="w-4 h-4 text-amber-500" />
-                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Key Insights</span>
-                    </div>
-                    <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
-                        {analysis.summary}
-                    </p>
-                    {analysis.price && (
-                        <div className="inline-flex items-center px-2 py-1 rounded bg-amber-200/50 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300 text-xs font-bold">
-                            Quote: {analysis.price}
-                        </div>
+            {callState.status !== "completed" && (
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/60 backdrop-blur-sm transition-all">
+                    {callState.status === "calling" && (
+                        <>
+                            <div className="relative">
+                                <Loader2 className="w-5 h-5 text-zinc-900 dark:text-zinc-100 animate-spin" />
+                                <div className="absolute inset-0 bg-zinc-900/20 dark:bg-zinc-100/20 blur-lg animate-pulse" />
+                            </div>
+                            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Connecting to {label}...</span>
+                        </>
+                    )}
+                    {callState.status === "in-progress" && (
+                        <>
+                            <div className="relative">
+                                <Phone className="w-5 h-5 text-green-500 animate-pulse" />
+                                <div className="absolute inset-0 bg-green-500/20 blur-lg animate-pulse" />
+                            </div>
+                            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Interaction in progress...</span>
+                        </>
+                    )}
+                    {callState.status === "failed" && (
+                        <>
+                            <XCircle className="w-5 h-5 text-red-500" />
+                            <span className="text-sm font-medium text-red-600 dark:text-red-400">{callState.error || "Connection failed"}</span>
+                        </>
                     )}
                 </div>
             )}
 
-            {/* Results */}
+            {/* Collapsable Technical Data */}
             {callState.status === "completed" && callState.result && (
-                <div className="space-y-4 ml-3 border-l border-zinc-200 dark:border-zinc-800 pl-4 py-2">
-                    {/* Recording */}
+                <div className="space-y-4 pt-2">
+                    {/* Recording Area */}
                     {callState.result.recordingUrl && (
-                        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-200/60 dark:border-zinc-800/60 space-y-3">
                             <div className="flex items-center gap-2">
-                                <Play className="w-4 h-4 text-zinc-500" />
-                                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Recording</span>
+                                <Play className="w-3.5 h-3.5 text-zinc-400" />
+                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Call Audio</span>
                             </div>
-                            <audio controls className="w-full" src={callState.result.recordingUrl}>
-                                Your browser does not support the audio element.
+                            <audio controls className="w-full h-8 opacity-70 hover:opacity-100 transition-opacity" src={callState.result.recordingUrl}>
+                                Your browser does not support metadata.
                             </audio>
                         </div>
                     )}
 
-                    {/* Transcript */}
+                    {/* Collapsable Transcript */}
                     {callState.result.transcript && (
-                        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 space-y-2">
-                            <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-zinc-500" />
-                                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Transcript</span>
-                            </div>
-                            <p className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap leading-relaxed">
-                                {callState.result.transcript}
-                            </p>
+                        <div className="rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden bg-white dark:bg-black/20">
+                            <button
+                                onClick={() => setShowTranscript(!showTranscript)}
+                                className="w-full flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/30 transition-colors"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-zinc-400" />
+                                    <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 underline underline-offset-4 decoration-zinc-200 dark:decoration-zinc-800">
+                                        {showTranscript ? "Hide Transcript" : "Show Transcript"}
+                                    </span>
+                                </div>
+                                {showTranscript ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
+                            </button>
+
+                            <AnimatePresence>
+                                {showTranscript && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                                    >
+                                        <div className="p-6 pt-0 border-t border-zinc-100 dark:border-zinc-800/50">
+                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto font-mono scrollbar-hide">
+                                                {callState.result.transcript}
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     )}
-
-                    {/* Call info */}
-                    <div className="flex items-center gap-4 text-xs text-zinc-400">
+                    {/* Metadata Footer */}
+                    <div className="flex items-center justify-end gap-6 px-2 text-[10px] font-bold text-zinc-300 dark:text-zinc-700 uppercase tracking-widest">
                         {callState.result.endedReason && (
-                            <span>Ended: {callState.result.endedReason}</span>
-                        )}
-                        {callState.result.cost !== undefined && (
-                            <span>Cost: ${callState.result.cost.toFixed(4)}</span>
+                            <span>Reason: {callState.result.endedReason}</span>
                         )}
                     </div>
+                </div>
+            )}
+
+            {analysis && (
+                <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50 space-y-5">
+                    {/* Outcome Row */}
+                    <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Outcome</span>
+                            {analysis.price && (
+                                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">${analysis.price}</span>
+                            )}
+                        </div>
+                        <p className="text-sm text-zinc-800 dark:text-zinc-200 font-medium">
+                            {analysis.summary}
+                        </p>
+                    </div>
+
+                    {/* Leverage Row */}
+                    {analysis.insights && (
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Leverage</span>
+                            <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400 italic">
+                                <span>{analysis.insights}</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
