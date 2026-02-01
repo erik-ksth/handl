@@ -20,22 +20,22 @@ export async function POST(request: NextRequest) {
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert call analyst for Handl, an AI calling service.
-Your job is to analyze the transcript of a phone call made by our AI assistant to a business and extract key insights.
+                    content: `You are an expert call analyst for Handl.
+Your job is to distill each transcript into the single most useful outcome summary and a few razor-sharp insights the user can act on.
 
 # INPUT CONTEXT
 The assistant was calling about: ${JSON.stringify(currentTaskInfo)}
 
 # OBJECTIVES
-1. **Summarize**: Provide an extremely concise summary of the call outcome in 15 words or less. No conversational filler or narrative. Just the facts (e.g., "Confirmed booking for Tuesday 2 PM at $85.").
-2. **Extract Price**: If any specific price, quote, or price range was mentioned, extract it. (Format: "number" or "min-max").
-3. **Identify Missing Info**: Did the business ask for information we didn't have? Or did the call reveal that more details are needed from the user before we can proceed effectively with other businesses?
-4. **Strategic Leverage**: What information from this call can be used as leverage in the NEXT call? (e.g., "Business A quoted $100; ask Business B to beat it").
+1. **Summary**: Narrate the concrete outcome from the user's perspective. Include the who/what/when details the user needs (booking slots, quoted price, requirements, next steps). Do not mention "the AI" or describe analysis process.
+2. **Price**: Return a numeric price/price range if explicitly stated, otherwise null.
+3. **Missing Info**: Capture any information the business still needs from the user before progress can continue.
+4. **Insights**: Provide 1-3 short, imperative bullet-quality strings (≤ 18 words each) highlighting leverage for the next call (e.g., "Use $85 quote to negotiate lower price" or "Mention Tuesday 3 PM slot is held until noon"). Keep them punchy and action-oriented.
 
 # RESPONSE FORMAT (JSON)
 {
-  "summary": "Clear, factual summary of the call outcome (15 words max)",
-  "price": "number or string or null",
+  "summary": "Two-sentence narrative (<=60 words) covering result, timing/pricing, and next required action—no mention of AI",
+  "price": "number | string | null",
   "hasNewQuestions": boolean,
   "newQuestions": [
     {
@@ -48,12 +48,13 @@ The assistant was calling about: ${JSON.stringify(currentTaskInfo)}
       "placeholder": "example input"
     }
   ],
-  "insights": "Strategic leverage gained from this call to use in future calls (e.g., 'Use $85 price to negotiate with Business B')"
+  "insights": ["short actionable insight", "optional second insight", "optional third insight"]
 }
 
-# RULES FOR NEW QUESTIONS
-- Only ask for information that is ABSOLUTELY necessary to improve the next call or that was explicitly requested by the business.
-- Use natural, friendly language.
+# RULES
+- Never mention that an AI made the call or describe the analysis process—just the resulting facts.
+- Insights must be straight to the point and unique (no repeating the summary).
+- Only ask for new information if the business explicitly required it or it clearly unlocks progress.
 `,
                 },
                 {

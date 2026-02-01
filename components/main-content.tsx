@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText, Plus, Trash2, Search, MapPin, Navigation, Star, Clock, Check, ChevronDown, ChevronUp } from "lucide-react";
-import { createTask, updateTask, getTask, createMessage, getMessages, getCurrentUser } from "@/utils/db";
+import { createTask, updateTask, getTask, createMessage, getMessages, getCurrentUser, createCall, createCallAnalysis, getTaskWithCalls } from "@/utils/db";
 import type { Task, Message as DbMessage, User as DbUser } from "@/types/database";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
@@ -376,9 +376,9 @@ function PhoneNumberCollector({
             }
             return { ...entry, phoneError: undefined };
         });
-        
+
         setPhoneEntries(updatedEntries);
-        
+
         // Check if any entries have phone errors
         const hasErrors = updatedEntries.some(entry => entry.phoneError);
         if (hasErrors) return;
@@ -953,7 +953,7 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
     );
 }
 
-function TaskSummary({ analysis: initialAnalysis, showCallButton = true }: { analysis: AnalysisResult; showCallButton?: boolean }) {
+function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId }: { analysis: AnalysisResult; showCallButton?: boolean; taskId: string | null }) {
     const [analysis, setAnalysis] = useState(initialAnalysis);
     const { extractedInfo, callObjective } = analysis;
     const { questionsToAsk = [], phoneNumbers = [] } = extractedInfo;
@@ -966,6 +966,72 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true }: { ana
     const [iterativeQuestions, setIterativeQuestions] = useState<any[]>([]);
     const [bestPrice, setBestPrice] = useState<string | null>(null);
     const [negotiationInsight, setNegotiationInsight] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!taskId) return;
+
+        let isMounted = true;
+
+        const hydrateFromDatabase = async () => {
+            try {
+                const taskWithCalls = await getTaskWithCalls(taskId);
+                if (!taskWithCalls || !isMounted) return;
+
+                const hydratedStates: Record<string, CallState> = {};
+                const hydratedAnalyses: Record<string, any> = {};
+                let latestPrice: string | null = null;
+                let latestInsight: string | null = null;
+
+                taskWithCalls.calls.forEach(call => {
+                    if (!call.phone_number) return;
+
+                    const status: CallState["status"] =
+                        call.status === "queued" ? "calling" :
+                            call.status === "in_progress" ? "in-progress" :
+                                call.status === "failed" ? "failed" : "completed";
+
+                    hydratedStates[call.phone_number] = {
+                        status,
+                        callId: call.vapi_call_id ?? undefined,
+                        result: status === "completed" ? {
+                            transcript: call.transcript || undefined,
+                            recordingUrl: call.recording_url || undefined,
+                            endedReason: call.ended_reason || undefined,
+                            cost: call.cost || undefined,
+                        } : undefined,
+                    };
+
+                    if (call.analysis) {
+                        hydratedAnalyses[call.phone_number] = {
+                            summary: call.analysis.summary,
+                            price: call.analysis.price,
+                            insights: call.analysis.insights,
+                            hasNewQuestions: call.analysis.has_new_questions,
+                            newQuestions: call.analysis.new_questions,
+                        };
+
+                        if (call.analysis.price) {
+                            latestPrice = call.analysis.price;
+                            latestInsight = call.analysis.insights || null;
+                        }
+                    }
+                });
+
+                setCallStates(hydratedStates);
+                setCallAnalyses(hydratedAnalyses);
+                if (latestPrice) setBestPrice(latestPrice);
+                if (latestInsight) setNegotiationInsight(latestInsight);
+            } catch (error) {
+                console.error("Failed to hydrate calls:", error);
+            }
+        };
+
+        hydrateFromDatabase();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [taskId]);
 
     const performCallAnalysis = async (transcript: string, phoneNum: string) => {
         try {
@@ -991,13 +1057,15 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true }: { ana
                 if (data.analysis.hasNewQuestions && data.analysis.newQuestions.length > 0) {
                     setIterativeQuestions(data.analysis.newQuestions);
                     setIsPaused(true);
-                    return true; // Paused
+                    return { paused: true, analysis: data.analysis };
                 }
+
+                return { paused: false, analysis: data.analysis };
             }
-            return false;
+            return { paused: false };
         } catch (error) {
             console.error("Failed to analyze call:", error);
-            return false;
+            return { paused: false };
         }
     };
 
@@ -1016,6 +1084,35 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true }: { ana
                 }
 
                 if (data.status === "ended") {
+                    // Save call record to database
+                    let callRecord = null;
+                    if (taskId) {
+                        try {
+                            // Get the current timestamp for started_at and ended_at
+                            const now = new Date().toISOString();
+
+                            callRecord = await createCall({
+                                task_id: taskId,
+                                vapi_call_id: callId,
+                                phone_number: phoneNum,
+                                business_name: phoneNumbers.find(p => p.phoneNumber === phoneNum)?.name || null,
+                                status: 'completed',
+                                transcript: data.transcript || null,
+                                recording_url: data.recordingUrl || null,
+                                started_at: now, // Use current time as we don't have the actual start time
+                                ended_at: now,   // Use current time as we don't have the actual end time
+                                ended_reason: data.endedReason || null,
+                                cost: data.cost || null,
+                            });
+
+                            console.log("Call record saved to database:", callRecord);
+                        } catch (error) {
+                            console.error("Failed to save call data to database:", error);
+                        }
+                    } else {
+                        console.warn("Cannot save call data: No task ID available");
+                    }
+
                     setCallStates(prev => ({
                         ...prev,
                         [phoneNum]: {
@@ -1032,9 +1129,25 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true }: { ana
                     }));
 
                     // Sequence logic: Analyze results then move to next or pause
-                    const paused = await performCallAnalysis(data.transcript || "", phoneNum);
+                    const analysisOutcome = await performCallAnalysis(data.transcript || "", phoneNum);
 
-                    if (!paused && currentCallIndex !== null && currentCallIndex < phoneNumbers.length - 1) {
+                    // Persist the richer analysis to the database so it matches UI
+                    if (taskId && analysisOutcome.analysis && callRecord) {
+                        try {
+                            await createCallAnalysis({
+                                call_id: callRecord.id,
+                                summary: analysisOutcome.analysis.summary || null,
+                                price: analysisOutcome.analysis.price || null,
+                                has_new_questions: !!analysisOutcome.analysis.hasNewQuestions,
+                                new_questions: analysisOutcome.analysis.newQuestions || null,
+                                insights: analysisOutcome.analysis.insights || null
+                            });
+                        } catch (error) {
+                            console.error("Failed to persist call analysis:", error);
+                        }
+                    }
+
+                    if (!analysisOutcome.paused && currentCallIndex !== null && currentCallIndex < phoneNumbers.length - 1) {
                         // Automatically move to next if not paused
                         startCallAtIndex(currentCallIndex + 1);
                     }
@@ -1057,7 +1170,7 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true }: { ana
         };
 
         poll();
-    }, [currentCallIndex, phoneNumbers, extractedInfo]);
+    }, [taskId, currentCallIndex, phoneNumbers, extractedInfo]);
 
     const startCallAtIndex = async (index: number, currentAnalysis = analysis) => {
         if (index >= phoneNumbers.length) return;
@@ -1453,7 +1566,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                         >
                             <motion.div
                                 animate={{
-                                    paddingLeft: leftOpen ? "280px" : "72px",
+                                    paddingLeft: leftOpen ? "360px" : "100px",
                                     paddingRight: rightOpen ? "320px" : "0px",
                                 }}
                                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
@@ -1502,7 +1615,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
 
                 <motion.div
                     animate={{
-                        paddingLeft: leftOpen ? "280px" : "72px",
+                        paddingLeft: leftOpen ? "360px" : "100px",
                         paddingRight: rightOpen ? "320px" : "0px",
                     }}
                     transition={{ type: "spring", damping: 25, stiffness: 200 }}
@@ -1545,7 +1658,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                                             ) : typeof msg.content !== "string" && msg.content.hasAllRequiredInfo && (!msg.content.extractedInfo.phoneNumbers || msg.content.extractedInfo.phoneNumbers.length === 0) ? (
                                                 /* All info gathered, now collect phone numbers */
                                                 <>
-                                                    <TaskSummary analysis={msg.content} showCallButton={false} />
+                                                    <TaskSummary analysis={msg.content} showCallButton={false} taskId={taskId} />
                                                     <PhoneNumberCollector
                                                         allowMultiple={msg.content.callType === "call_businesses"}
                                                         serviceName={msg.content.extractedInfo.service}
@@ -1559,7 +1672,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                                                 </>
                                             ) : typeof msg.content !== "string" && msg.content.hasAllRequiredInfo ? (
                                                 /* If complete with phone numbers, show the premium summary with call button */
-                                                <TaskSummary analysis={msg.content} showCallButton={true} />
+                                                <TaskSummary analysis={msg.content} showCallButton={true} taskId={taskId} />
                                             ) : (
                                                 /* Fallback for strings / errors */
                                                 <div className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
@@ -1596,7 +1709,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
 
             <motion.div
                 animate={{
-                    paddingLeft: leftOpen ? "280px" : "72px",
+                    paddingLeft: leftOpen ? "360px" : "100px",
                     paddingRight: rightOpen ? "320px" : "0px",
                 }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
