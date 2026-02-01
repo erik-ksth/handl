@@ -4,6 +4,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText, Plus, Trash2, Search, MapPin, Navigation, Star, Clock, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { createTask, updateTask, getTask, createMessage, getMessages, getCurrentUser } from "@/utils/db";
+import type { Task, Message as DbMessage, User as DbUser } from "@/types/database";
+import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import "react-phone-number-input/style.css";
+import { toE164 } from "@/utils/phone-format";
 
 interface AnalysisResult {
     responseType?: "task_update" | "conversation";
@@ -39,6 +44,8 @@ interface AnalysisResult {
 interface MainContentProps {
     leftOpen: boolean;
     rightOpen: boolean;
+    currentTaskId: string | null;
+    onTaskCreated: (taskId: string) => void;
 }
 
 interface Message {
@@ -206,6 +213,7 @@ function SummaryItem({ label, value }: { label: string, value: any }) {
 interface PhoneEntry {
     name: string;
     phoneNumber: string;
+    phoneError?: string;
 }
 
 interface BusinessResult {
@@ -330,27 +338,59 @@ function PhoneNumberCollector({
     };
 
     const handleEntryChange = (index: number, field: 'name' | 'phoneNumber', value: string) => {
-        setPhoneEntries(prev => prev.map((entry, i) =>
-            i === index ? { ...entry, [field]: value } : entry
-        ));
+        setPhoneEntries(prev => prev.map((entry, i) => {
+            if (i === index) {
+                const updated = { ...entry, [field]: value };
+                // Clear phone error when phone number changes
+                if (field === 'phoneNumber') {
+                    updated.phoneError = undefined;
+                }
+                return updated;
+            }
+            return entry;
+        }));
     };
 
-    const validManualEntries = phoneEntries.filter(entry => entry.phoneNumber.trim() !== '');
+    const validManualEntries = phoneEntries.filter(entry => {
+        const hasPhone = entry.phoneNumber.trim() !== '';
+        const isValidPhone = hasPhone && (!entry.phoneNumber || isValidPhoneNumber(entry.phoneNumber));
+        return hasPhone && isValidPhone;
+    });
     const selectedBusinessEntries = searchResults.filter(
         b => selectedBusinesses.has(b.placeId) && b.phoneNumber
     );
     const totalCount = validManualEntries.length + selectedBusinessEntries.length;
     const isValid = totalCount > 0;
 
+    // Format business phone numbers for display with country code
+    const formattedBusinessResults = searchResults.map(business => ({
+        ...business,
+        phoneNumber: business.phoneNumber ? toE164(business.phoneNumber) || null : null
+    }));
+
     const handleSubmit = () => {
+        // Validate all phone numbers
+        const updatedEntries = phoneEntries.map(entry => {
+            if (entry.phoneNumber.trim() !== '' && !isValidPhoneNumber(entry.phoneNumber)) {
+                return { ...entry, phoneError: "Please enter a valid phone number" };
+            }
+            return { ...entry, phoneError: undefined };
+        });
+        
+        setPhoneEntries(updatedEntries);
+        
+        // Check if any entries have phone errors
+        const hasErrors = updatedEntries.some(entry => entry.phoneError);
+        if (hasErrors) return;
+
         const manual = validManualEntries.map(entry => ({
             name: entry.name.trim() || undefined,
-            phoneNumber: entry.phoneNumber.trim()
+            phoneNumber: entry.phoneNumber // Store in E.164 format
         }));
 
         const selected = selectedBusinessEntries.map(b => ({
             name: b.name,
-            phoneNumber: b.phoneNumber!
+            phoneNumber: toE164(b.phoneNumber) || b.phoneNumber! // Store in E.164 format
         }));
 
         const combined = [...manual, ...selected];
@@ -593,7 +633,7 @@ function PhoneNumberCollector({
                     </div>
 
                     <div className="space-y-2 max-h-80 overflow-y-auto">
-                        {searchResults.map((business) => (
+                        {formattedBusinessResults.map((business) => (
                             <div
                                 key={business.placeId}
                                 onClick={() => business.phoneNumber && toggleBusinessSelection(business.placeId)}
@@ -694,7 +734,7 @@ function PhoneNumberCollector({
 
             <div className="space-y-3">
                 {phoneEntries.map((entry, index) => (
-                    <div key={index} className="flex gap-2 items-center">
+                    <div key={index} className="flex gap-2 items-start">
                         {allowMultiple && (
                             <input
                                 type="text"
@@ -704,17 +744,24 @@ function PhoneNumberCollector({
                                 className="w-40 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-800"
                             />
                         )}
-                        <input
-                            type="tel"
-                            value={entry.phoneNumber}
-                            onChange={(e) => handleEntryChange(index, 'phoneNumber', e.target.value)}
-                            placeholder={allowMultiple ? `Phone number ${index + 1}` : "Enter phone number"}
-                            className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-800"
-                        />
+                        <div className="flex-1">
+                            <PhoneInput
+                                international
+                                countryCallingCodeEditable={false}
+                                defaultCountry="US"
+                                value={entry.phoneNumber}
+                                onChange={(value) => handleEntryChange(index, 'phoneNumber', value || "")}
+                                placeholder={allowMultiple ? `Phone number ${index + 1}` : "Enter phone number"}
+                                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-100 dark:focus:ring-zinc-800"
+                            />
+                            {entry.phoneError && (
+                                <p className="text-xs text-red-500 dark:text-red-400 mt-1">{entry.phoneError}</p>
+                            )}
+                        </div>
                         {allowMultiple && phoneEntries.length > 1 && (
                             <button
                                 onClick={() => handleRemoveEntry(index)}
-                                className="p-2 text-zinc-400 hover:text-red-500 transition-colors"
+                                className="p-2 text-zinc-400 hover:text-red-500 transition-colors mt-1"
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>
@@ -1205,13 +1252,60 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true }: { ana
     );
 }
 
-export function MainContent({ leftOpen, rightOpen }: MainContentProps) {
+export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated }: MainContentProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
+    const [isLoadingTask, setIsLoadingTask] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [exampleIndex, setExampleIndex] = useState(0);
+    const [taskId, setTaskId] = useState<string | null>(currentTaskId);
+    const [userProfile, setUserProfile] = useState<DbUser | null>(null);
+
+    // Fetch user profile on mount
+    useEffect(() => {
+        const loadUser = async () => {
+            const user = await getCurrentUser();
+            if (user) setUserProfile(user);
+        };
+        loadUser();
+    }, []);
+
+    // Load task and messages when currentTaskId changes
+    useEffect(() => {
+        const loadTask = async () => {
+            if (currentTaskId) {
+                setIsLoadingTask(true);
+                try {
+                    const dbMessages = await getMessages(currentTaskId);
+                    const loadedMessages: Message[] = dbMessages.map(m => {
+                        // Content from DB is JSONB - could be { text: string } or AnalysisResult
+                        const content = m.content as Record<string, unknown>;
+                        // If it's a simple text message, extract text. Otherwise treat as AnalysisResult.
+                        const messageContent = 'text' in content && typeof content.text === 'string'
+                            ? content.text as string
+                            : content as unknown as AnalysisResult;
+                        return {
+                            id: m.id,
+                            role: m.role as "user" | "assistant",
+                            content: messageContent
+                        };
+                    });
+                    setMessages(loadedMessages);
+                    setTaskId(currentTaskId);
+                } catch (error) {
+                    console.error("Error loading task:", error);
+                }
+                setIsLoadingTask(false);
+            } else {
+                // New task - clear messages
+                setMessages([]);
+                setTaskId(null);
+            }
+        };
+        loadTask();
+    }, [currentTaskId]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1245,10 +1339,36 @@ export function MainContent({ leftOpen, rightOpen }: MainContentProps) {
         setLoading(true);
 
         try {
+            // Create task if this is the first message
+            let activeTaskId = taskId;
+            if (!activeTaskId) {
+                const newTask = await createTask({
+                    title: content.slice(0, 100),
+                    status: 'in_progress'
+                });
+                if (newTask) {
+                    activeTaskId = newTask.id;
+                    setTaskId(newTask.id);
+                    onTaskCreated(newTask.id);
+                }
+            }
+
+            // Save user message to database
+            if (activeTaskId) {
+                await createMessage({
+                    task_id: activeTaskId,
+                    role: 'user',
+                    content: { text: content }
+                });
+            }
+
             const response = await fetch("/api/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages: updatedMessages }),
+                body: JSON.stringify({
+                    messages: updatedMessages,
+                    userProfile: userProfile
+                }),
             });
 
             const data = await response.json();
@@ -1265,6 +1385,35 @@ export function MainContent({ leftOpen, rightOpen }: MainContentProps) {
             };
 
             setMessages((prev) => [...prev, assistantMessage]);
+
+            // Save assistant message to database
+            if (activeTaskId) {
+                await createMessage({
+                    task_id: activeTaskId,
+                    role: 'assistant',
+                    content: data.analysis
+                });
+
+                // Update task with extracted info if available
+                if (data.analysis && typeof data.analysis === 'object') {
+                    const { extractedInfo, callObjective, callType } = data.analysis;
+                    if (extractedInfo) {
+                        await updateTask(activeTaskId, {
+                            service: extractedInfo.service,
+                            service_details: extractedInfo.serviceDetails,
+                            location: extractedInfo.location,
+                            budget: extractedInfo.budget,
+                            time_constraints: extractedInfo.timeConstraints,
+                            preferred_criteria: extractedInfo.preferredCriteria,
+                            call_objective: callObjective,
+                            call_type: callType,
+                            questions_to_ask: extractedInfo.questionsToAsk,
+                            additional_notes: extractedInfo.additionalNotes,
+                            title: extractedInfo.service || content.slice(0, 100)
+                        });
+                    }
+                }
+            }
         } catch (err) {
             const errorMessage: Message = {
                 id: (Date.now() + 1).toString(),
@@ -1317,14 +1466,14 @@ export function MainContent({ leftOpen, rightOpen }: MainContentProps) {
                                     className="w-24 h-24 md:w-32 md:h-32 relative mb-8"
                                 >
                                     <Image
-                                        src="/logo.png"
+                                        src="/logo/logo-full-black.png"
                                         alt="Handl Logo"
                                         fill
                                         className="object-contain dark:hidden"
                                         priority
                                     />
                                     <Image
-                                        src="/logo-white.png"
+                                        src="/logo/logo-full-white.png"
                                         alt="Handl Logo"
                                         fill
                                         className="object-contain hidden dark:block"

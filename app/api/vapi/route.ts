@@ -28,14 +28,18 @@ function generateSystemPrompt({
     budget,
     timeConstraint,
 }: Omit<CallRequestBody, "phoneNumber" | "phoneNumberId">): string {
-    return `You are an AI assistant calling on behalf of a Handl user. Your role is to professionally gather information from businesses, service providers, or individuals.
+    return `You are calling on behalf of someone interested in ${serviceName}. Your role is to professionally gather information from businesses, service providers, or individuals.
 
 # IDENTITY & INTRODUCTION
 
-- You MUST identify yourself as an AI assistant in the first 10 seconds
-- Use this introduction: "Hi, this is an AI assistant calling on behalf of ${userName}. I'm calling to ask about ${serviceName}. Is now a good time?"
-- If asked, clarify: "I'm an automated assistant from Handl, a service that makes calls on behalf of customers."
-- Be transparent, polite, and professional at all times
+- Start naturally without mentioning you're an AI unless asked
+- Use this introduction: "Hi, I'm calling to ask about ${serviceName}."
+- ONLY reveal you're an AI if they ask who you are, seem skeptical, or question if you're legitimate
+- ONLY mention the user's name (${userName}) if they specifically ask who you're calling for
+- When revealing identity (if asked): "I'm calling on behalf of ${userName} who is interested in ${serviceName}."
+- If they seem to think you're a scam or are very skeptical, explain: "I understand your concern. I'm an automated assistant calling on behalf of ${userName} who is interested in ${serviceName}. If you'd prefer, I can have them call you directly instead?"
+- Be transparent when asked, but don't lead with AI identity
+- Be polite and professional at all times
 
 # YOUR OBJECTIVES
 
@@ -53,11 +57,11 @@ ${timeConstraint ? `- Time constraint: ${timeConstraint}` : ''}
 # CONVERSATION GUIDELINES
 
 ## Opening (First 15 seconds)
-1. Greet warmly and identify yourself as an AI assistant
-2. State who you're calling on behalf of
-3. Briefly explain the purpose
-4. Ask if it's a good time to talk
-5. If they say no, ask when would be better and offer to call back
+1. Greet warmly and naturally
+2. State the purpose of your call (asking about ${serviceName})
+3. Ask if it's a good time to talk
+4. If they say no, ask when would be better and offer to call back
+5. Only reveal you're an AI or mention ${userName} if they ask or seem skeptical
 
 ## During Conversation
 - Be concise and respectful of their time (aim for 2-3 minute calls)
@@ -236,12 +240,15 @@ A successful call includes:
 
 # FINAL REMINDERS
 
-- Always be transparent about being an AI
+- Be natural and conversational - don't lead with being an AI
+- Only reveal you're an AI if asked or if they seem skeptical
+- Only mention ${userName} if they specifically ask who you're calling for
+- If they doubt you or think you're a scam, THEN explain you're calling on behalf of ${userName}
 - Respect their time - be concise
 - Get clear, specific answers when possible
 - If they decline to help, thank them and end politely
 - Your goal is information gathering, not sales
-- Be human-like in tone, but honest about being AI
+- Be transparent when asked, but natural by default
 
 Now, make the call professionally and gather the information needed.`;
 }
@@ -296,7 +303,26 @@ export async function POST(request: NextRequest) {
                             content: systemPrompt,
                         },
                     ],
+                    temperature: 0.7, // Add this - makes responses more natural
+                    maxTokens: 150,   // Prevents long-winded responses
                 },
+                voice: {
+                    provider: "11labs",
+                    voiceId: "21m00Tcm4TlvDq8ikWAM", // or another natural voice
+                    stability: 0.5,   // More dynamic, less robotic
+                    similarityBoost: 0.75,
+                },
+                
+                // Background sound (makes it sound more like real call)
+                backgroundSound: "office",
+                
+                // End call phrases (so AI knows when to hang up)
+                endCallPhrases: [
+                    "goodbye",
+                    "bye",
+                    "have a good day",
+                    "talk to you later"
+                ],
             },
         });
 

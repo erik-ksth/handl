@@ -164,8 +164,8 @@ export default function LoginPage() {
                             animate={{ scale: 1, opacity: 1 }}
                             className="flex justify-center mb-8"
                         >
-                            <img src="/logo.png" alt="Logo" className="h-10 w-auto dark:hidden" />
-                            <img src="/logo-white.png" alt="Logo" className="h-10 w-auto hidden dark:block" />
+                            <img src="/logo/logo-full-black.png" alt="Logo" className="h-10 w-auto dark:hidden" />
+                            <img src="/logo/logo-full-white.png" alt="Logo" className="h-10 w-auto hidden dark:block" />
                         </motion.div>
                         <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
                             Welcome back
