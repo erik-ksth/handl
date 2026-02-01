@@ -4,56 +4,64 @@
 
 :root {
   /* Minimalist Light Theme - Softer, paper-like */
-  --background: #fcfcfc; /* Slightly off-white, not blinding */
-  --foreground: #2a2a2a; /* Soft black */
-  
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  
-  --card: #ffffff;
-  --card-foreground: #2a2a2a;
-  
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  
-  --primary: #18181b;
-  --primary-foreground: #fafafa;
-  
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
+  --background: #ffffff;
+  --foreground: #111111;
 
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
-  
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  --card: #ffffff;
+  --card-foreground: #111111;
+
+  --border: #e2e8f0;
+  --input: #f8fafc;
+
+  --primary: #0f172a;
+  --primary-foreground: #f8fafc;
+
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+
+  /* Handl Signature */
+  --handl-accent: #A5CCFF;
+  --handl-accent-foreground: #002D5F;
+
   /* Sidebar specific */
-  --sidebar-bg: #fcfcfc;
-  --sidebar-border: transparent; /* Cleaner look */
+  --sidebar-bg: #ffffff;
+  --sidebar-border: transparent;
 }
 
 .dark {
-  /* Minimalist Dark Theme - Rich charcoal, not pitch black */
-  --background: #0f0f10; /* Deep matte grey */
-  --foreground: #e4e4e7; /* Soft white */
-  
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  
-  --card: #18181b;
-  --card-foreground: #e4e4e7;
-  
-  --border: #27272a;
-  --input: #27272a;
-  
-  --primary: #fafafa;
-  --primary-foreground: #18181b;
-  
-  --secondary: #27272a;
-  --secondary-foreground: #fafafa;
-  
-  --accent: #27272a;
-  --accent-foreground: #fafafa;
-  
-  --sidebar-bg: #0f0f10;
+  /* Editorial Dark Theme - Deep charcoal/navy, high contrast */
+  --background: #050505;
+  --foreground: #f8fafc;
+
+  --muted: #111111;
+  --muted-foreground: #94a3b8;
+
+  --card: #0a0a0a;
+  --card-foreground: #f8fafc;
+
+  --border: #1e293b;
+  --input: #0f172a;
+
+  --primary: #f8fafc;
+  --primary-foreground: #0f172a;
+
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+
+  /* Handl Signature */
+  --handl-accent: #A5CCFF;
+  --handl-accent-foreground: #002D5F;
+
+  --sidebar-bg: #050505;
   --sidebar-border: transparent;
 }
 
@@ -72,11 +80,16 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-handl-accent: var(--handl-accent);
+  --color-handl-accent-foreground: var(--handl-accent-foreground);
   --color-sidebar-bg: var(--sidebar-bg);
   --color-sidebar-border: var(--sidebar-border);
-  
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --shadow-editorial: 0 20px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-editorial-sm: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
 }
 
 body {

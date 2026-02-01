@@ -2,38 +2,38 @@ import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
+    apiKey: process.env.GROQ_API_KEY,
 });
 
 export async function POST(request: NextRequest) {
-  try {
-    const { messages: history, userProfile } = await request.json();
+    try {
+        const { messages: history, userProfile } = await request.json();
 
-    if (!history || !Array.isArray(history) || history.length === 0) {
-      return NextResponse.json(
-        { error: "Conversation history is required" },
-        { status: 400 }
-      );
-    }
+        if (!history || !Array.isArray(history) || history.length === 0) {
+            return NextResponse.json(
+                { error: "Conversation history is required" },
+                { status: 400 }
+            );
+        }
 
-    // Format history for Groq - handle potential objects in assistant messages
-    const formattedMessages = history.map(msg => ({
-      role: (msg.role === "user" ? "user" : "assistant") as "user" | "assistant",
-      content: typeof msg.content === "string"
-        ? msg.content
-        : JSON.stringify(msg.content)
-    }));
+        // Format history for Groq - handle potential objects in assistant messages
+        const formattedMessages = history.map(msg => ({
+            role: (msg.role === "user" ? "user" : "assistant") as "user" | "assistant",
+            content: typeof msg.content === "string"
+                ? msg.content
+                : JSON.stringify(msg.content)
+        }));
 
-    const userProfileInfo = userProfile ? `
+        const userProfileInfo = userProfile ? `
 KNOWN USER INFORMATION (DO NOT ASK FOR THIS INFO AGAIN IF IT IS ALREADY PROVIDED):
 - Name: ${userProfile.full_name || 'Not provided'}
 - Callback Phone: ${userProfile.phone_number || 'Not provided'}` : '';
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: `You are a task analysis assistant for Handl, an AI calling service. Your job is to analyze user requests and determine ALL information needed to successfully make phone calls on their behalf.
+        const completion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "system",
+                    content: `You are a task analysis assistant for Handl, an AI calling service. Your job is to analyze user requests and determine ALL information needed to successfully make phone calls on their behalf.
 ${userProfileInfo}
 
 # CORE PRINCIPLES
@@ -457,25 +457,25 @@ Response:
 
 Now analyze the conversation and return the structured response.
 `,
-        },
-        ...formattedMessages,
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.1,
-      max_tokens: 1500,
-      response_format: { type: "json_object" },
-    });
+                },
+                ...formattedMessages,
+            ],
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.1,
+            max_tokens: 1500,
+            response_format: { type: "json_object" },
+        });
 
-    const rawAnalysisContent = completion.choices[0]?.message?.content || "{}";
-    const analysis = JSON.parse(rawAnalysisContent);
-    console.log("\x1b[36m%s\x1b[0m", "AI Analysis Result:", JSON.stringify(analysis, null, 2));
+        const rawAnalysisContent = completion.choices[0]?.message?.content || "{}";
+        const analysis = JSON.parse(rawAnalysisContent);
+        console.log("\x1b[36m%s\x1b[0m", "AI Analysis Result:", JSON.stringify(analysis, null, 2));
 
-    return NextResponse.json({ analysis });
-  } catch (error) {
-    console.error("Groq API error:", error);
-    return NextResponse.json(
-      { error: "Failed to analyze task" },
-      { status: 500 }
-    );
-  }
+        return NextResponse.json({ analysis });
+    } catch (error) {
+        console.error("Groq API error:", error);
+        return NextResponse.json(
+            { error: "Failed to analyze task" },
+            { status: 500 }
+        );
+    }
 }

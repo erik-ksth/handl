@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText, Plus, Trash2, Search, MapPin, Navigation, Star, Clock, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowUp, Phone, Loader2, CheckCircle, XCircle, Play, FileText, Plus, Trash2, Search, MapPin, Navigation, Star, Clock, Check, ChevronDown, ChevronUp, Home, Car, Smartphone, HeartPulse, Sparkles } from "lucide-react";
 import { createTask, updateTask, getTask, createMessage, getMessages, getCurrentUser, createCall, createCallAnalysis, getTaskWithCalls } from "@/utils/db";
 import type { Task, Message as DbMessage, User as DbUser } from "@/types/database";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
@@ -200,12 +200,19 @@ function AnalysisFormGroup({ missingInfo, onSubmit }: { missingInfo: any[], onSu
     );
 }
 
-function SummaryItem({ label, value }: { label: string, value: any }) {
+function SummaryItem({ label, value, icon: Icon }: { label: string, value: any, icon?: any }) {
     if (!value || (Array.isArray(value) && value.length === 0)) return null;
     return (
-        <div className="space-y-1">
-            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">{label}</span>
-            <p className="text-sm text-zinc-800 dark:text-zinc-200 font-medium">{value}</p>
+        <div className="flex flex-col gap-2 group">
+            <div className="flex items-center gap-2">
+                {Icon && <Icon className="w-3.5 h-3.5 text-handl-accent" />}
+                <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-bold group-hover:text-handl-accent transition-colors">
+                    {label}
+                </span>
+            </div>
+            <p className="text-base text-foreground font-light leading-relaxed">
+                {typeof value === "string" ? value : JSON.stringify(value)}
+            </p>
         </div>
     );
 }
@@ -818,17 +825,17 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
     if (callState.status === "idle") return null;
 
     return (
-        <div className="mt-8 space-y-6">
+        <div className="mt-12 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header / Business Name */}
             {label && (
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-1.5 h-6 bg-zinc-900 dark:bg-zinc-100 rounded-full" />
-                        <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{label}</span>
+                    <div className="flex items-center gap-4">
+                        <div className="w-1.5 h-8 bg-handl-accent rounded-full shadow-[0_0_15px_rgba(165,204,255,0.4)]" />
+                        <span className="text-xl font-bold tracking-tight text-foreground">{label}</span>
                     </div>
                     {callState.status === "completed" && (
-                        <div className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-[10px] font-bold uppercase tracking-widest border border-green-500/20">
-                            Success
+                        <div className="px-3 py-1 rounded-full bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-[0.2em] border border-green-500/20">
+                            Verified
                         </div>
                     )}
                 </div>
@@ -836,29 +843,39 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
 
             {/* Status indicator */}
             {callState.status !== "completed" && (
-                <div className="flex items-center gap-3 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/60 backdrop-blur-sm transition-all">
+                <div className="flex items-center gap-4 p-6 rounded-[2rem] bg-muted/50 border border-border/50 shadow-editorial-sm">
                     {callState.status === "calling" && (
                         <>
-                            <div className="relative">
-                                <Loader2 className="w-5 h-5 text-zinc-900 dark:text-zinc-100 animate-spin" />
-                                <div className="absolute inset-0 bg-zinc-900/20 dark:bg-zinc-100/20 blur-lg animate-pulse" />
+                            <div className="relative flex items-center justify-center">
+                                <motion.div
+                                    animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0.2, 0.5] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                    className="absolute w-8 h-8 bg-handl-accent/20 rounded-full"
+                                />
+                                <Phone className="w-5 h-5 text-handl-accent animate-pulse" />
                             </div>
-                            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Connecting to {label}...</span>
+                            <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Connecting...</span>
                         </>
                     )}
                     {callState.status === "in-progress" && (
                         <>
-                            <div className="relative">
-                                <Phone className="w-5 h-5 text-green-500 animate-pulse" />
-                                <div className="absolute inset-0 bg-green-500/20 blur-lg animate-pulse" />
+                            <div className="flex gap-1">
+                                {[0, 1, 2].map(i => (
+                                    <motion.div
+                                        key={i}
+                                        animate={{ height: [8, 16, 8] }}
+                                        transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
+                                        className="w-1.5 bg-handl-accent rounded-full"
+                                    />
+                                ))}
                             </div>
-                            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Interaction in progress...</span>
+                            <span className="text-sm font-bold uppercase tracking-widest text-handl-accent">Call in Progress</span>
                         </>
                     )}
                     {callState.status === "failed" && (
                         <>
                             <XCircle className="w-5 h-5 text-red-500" />
-                            <span className="text-sm font-medium text-red-600 dark:text-red-400">{callState.error || "Connection failed"}</span>
+                            <span className="text-sm font-bold uppercase tracking-widest text-red-500/70">{callState.error || "Connection failed"}</span>
                         </>
                     )}
                 </div>
@@ -866,15 +883,15 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
 
             {/* Collapsable Technical Data */}
             {callState.status === "completed" && callState.result && (
-                <div className="space-y-4 pt-2">
+                <div className="space-y-6">
                     {/* Recording Area */}
                     {callState.result.recordingUrl && (
-                        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-200/60 dark:border-zinc-800/60 space-y-3">
-                            <div className="flex items-center gap-2">
-                                <Play className="w-3.5 h-3.5 text-zinc-400" />
-                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Call Audio</span>
+                        <div className="p-6 rounded-[2rem] bg-muted/30 border border-border/50 space-y-4">
+                            <div className="flex items-center gap-3">
+                                <Play className="w-4 h-4 text-handl-accent" />
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Verified Audio Recording</span>
                             </div>
-                            <audio controls className="w-full h-8 opacity-70 hover:opacity-100 transition-opacity" src={callState.result.recordingUrl}>
+                            <audio controls className="w-full h-8 brightness-90 grayscale opacity-80 hover:opacity-100 transition-all" src={callState.result.recordingUrl}>
                                 Your browser does not support metadata.
                             </audio>
                         </div>
@@ -882,18 +899,18 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
 
                     {/* Collapsable Transcript */}
                     {callState.result.transcript && (
-                        <div className="rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden bg-white dark:bg-black/20">
+                        <div className="rounded-[2rem] border border-border/50 overflow-hidden bg-card/50">
                             <button
                                 onClick={() => setShowTranscript(!showTranscript)}
-                                className="w-full flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-900/30 transition-colors"
+                                className="w-full flex items-center justify-between p-6 hover:bg-muted/30 transition-colors group"
                             >
-                                <div className="flex items-center gap-2">
-                                    <FileText className="w-4 h-4 text-zinc-400" />
-                                    <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 underline underline-offset-4 decoration-zinc-200 dark:decoration-zinc-800">
-                                        {showTranscript ? "Hide Transcript" : "Show Transcript"}
+                                <div className="flex items-center gap-3">
+                                    <FileText className="w-5 h-5 text-muted-foreground group-hover:text-handl-accent transition-colors" />
+                                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                        Intelligence Transcript
                                     </span>
                                 </div>
-                                {showTranscript ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
+                                {showTranscript ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                             </button>
 
                             <AnimatePresence>
@@ -902,10 +919,10 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: "auto", opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
-                                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                                     >
-                                        <div className="p-6 pt-0 border-t border-zinc-100 dark:border-zinc-800/50">
-                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto font-mono scrollbar-hide">
+                                        <div className="p-8 pt-0 border-t border-border/50">
+                                            <p className="text-sm text-foreground/70 whitespace-pre-wrap leading-loose max-h-80 overflow-y-auto font-mono scrollbar-hide py-4">
                                                 {callState.result.transcript}
                                             </p>
                                         </div>
@@ -914,37 +931,37 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
                             </AnimatePresence>
                         </div>
                     )}
-                    {/* Metadata Footer */}
-                    <div className="flex items-center justify-end gap-6 px-2 text-[10px] font-bold text-zinc-300 dark:text-zinc-700 uppercase tracking-widest">
-                        {callState.result.endedReason && (
-                            <span>Reason: {callState.result.endedReason}</span>
-                        )}
-                    </div>
                 </div>
             )}
 
             {analysis && (
-                <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800/50 space-y-5">
+                <div className="pt-8 border-t border-border/50 space-y-10">
                     {/* Outcome Row */}
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-4">
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Outcome</span>
+                            <div className="flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Primary Outcome</span>
+                            </div>
                             {analysis.price && (
-                                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">${analysis.price}</span>
+                                <div className="px-3 py-1 bg-handl-accent/10 border border-handl-accent/20 rounded-lg">
+                                    <span className="text-sm font-bold text-handl-accent">${analysis.price}</span>
+                                </div>
                             )}
                         </div>
-                        <p className="text-sm text-zinc-800 dark:text-zinc-200 font-medium">
+                        <p className="text-xl font-light text-foreground leading-relaxed">
                             {analysis.summary}
                         </p>
                     </div>
 
                     {/* Leverage Row */}
                     {analysis.insights && (
-                        <div className="flex flex-col gap-1.5">
-                            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Leverage</span>
-                            <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400 italic">
-                                <span>{analysis.insights}</span>
-                            </div>
+                        <div className="flex flex-col gap-4 relative">
+                            <div className="absolute -left-4 top-0 bottom-0 w-1 bg-handl-accent/10 rounded-full" />
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Negotiation Leverage</span>
+                            <p className="text-base text-muted-foreground italic font-light leading-relaxed pl-2">
+                                "{analysis.insights}"
+                            </p>
                         </div>
                     )}
                 </div>
@@ -966,6 +983,8 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
     const [iterativeQuestions, setIterativeQuestions] = useState<any[]>([]);
     const [bestPrice, setBestPrice] = useState<string | null>(null);
     const [negotiationInsight, setNegotiationInsight] = useState<string | null>(null);
+    const isCalling = Object.values(callStates).some(s => s.status === "calling" || s.status === "in-progress");
+
 
     useEffect(() => {
         if (!taskId) return;
@@ -1262,27 +1281,27 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
     );
 
     return (
-        <div className="space-y-8 py-2">
+        <div className="space-y-12 py-4">
             {/* Header Section */}
-            <div className="space-y-3">
-                <div className="inline-flex items-center px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
-                    Task Summary
+            <div className="space-y-4">
+                <div className="inline-flex items-center px-2 py-0.5 rounded-sm bg-handl-accent/10 text-handl-accent text-[10px] font-bold uppercase tracking-[0.2em]">
+                    Task Intelligence
                 </div>
-                <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 leading-tight">
+                <h3 className="text-3xl font-bold text-foreground leading-tight tracking-tight">
                     {callObjective}
                 </h3>
             </div>
 
             {/* Details Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 border-y border-zinc-100 dark:border-zinc-800/50 py-10">
-                <SummaryItem label="Service" value={extractedInfo.service} />
-                <SummaryItem label="Details" value={extractedInfo.serviceDetails} />
-                <SummaryItem label="Location" value={extractedInfo.location} />
-                <SummaryItem label="Budget" value={extractedInfo.budget} />
-                <SummaryItem label="Timeline" value={extractedInfo.timeConstraints} />
-                <SummaryItem label="Priority" value={extractedInfo.preferredCriteria} />
-                <SummaryItem label="Phone Numbers" value={phoneNumbers.length > 0 ? phoneNumbers.map(p => p.name ? `${p.name}: ${p.phoneNumber}` : p.phoneNumber).join(", ") : null} />
-                <SummaryItem label="Additional Notes" value={extractedInfo.additionalNotes} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-12 border-y border-border/50 py-12">
+                <SummaryItem label="Service" value={extractedInfo.service} icon={Sparkles} />
+                <SummaryItem label="Details" value={extractedInfo.serviceDetails} icon={FileText} />
+                <SummaryItem label="Location" value={extractedInfo.location} icon={MapPin} />
+                <SummaryItem label="Budget" value={extractedInfo.budget} icon={Star} />
+                <SummaryItem label="Timeline" value={extractedInfo.timeConstraints} icon={Clock} />
+                <SummaryItem label="Priority" value={extractedInfo.preferredCriteria} icon={ArrowUp} />
+                <SummaryItem label="Contacts" value={phoneNumbers.length > 0 ? phoneNumbers.map(p => p.name ? `${p.name}: ${p.phoneNumber}` : p.phoneNumber).join(", ") : null} icon={Phone} />
+                <SummaryItem label="Notes" value={extractedInfo.additionalNotes} icon={Plus} />
 
                 {/* Dynamically render any extra info detected by AI */}
                 {extraInfoKeys.map(key => (
@@ -1290,18 +1309,22 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
                         key={key}
                         label={key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, str => str.toUpperCase())}
                         value={extractedInfo[key]}
+                        icon={Search}
                     />
                 ))}
             </div>
 
             {/* Questions to Ask */}
-            <div className="space-y-6">
-                <h4 className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Key Inquiry Points</h4>
+            <div className="space-y-8">
+                <div className="flex items-center gap-3">
+                    <div className="w-1 h-6 bg-handl-accent/30 rounded-full" />
+                    <h4 className="text-sm font-bold text-foreground uppercase tracking-widest">Key Inquiry Points</h4>
+                </div>
                 <div className="grid grid-cols-1 gap-4">
                     {questionsToAsk.map((q: string, i: number) => (
-                        <div key={i} className="flex gap-4 p-4 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-xl border border-zinc-100 dark:border-zinc-800/50">
-                            <span className="text-zinc-300 dark:text-zinc-700 font-mono text-xs mt-0.5">0{i + 1}</span>
-                            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{q}</p>
+                        <div key={i} className="flex gap-6 p-6 bg-muted/30 rounded-[2rem] border border-border/50 transition-colors hover:bg-muted/50">
+                            <span className="text-handl-accent font-mono text-sm mt-0.5 font-bold">0{i + 1}</span>
+                            <p className="text-base text-foreground/80 font-light leading-relaxed">{q}</p>
                         </div>
                     ))}
                 </div>
@@ -1310,7 +1333,7 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
             {/* Final Action - only show if showCallButton is true */}
             {showCallButton && (
                 <div className="pt-4 space-y-8">
-                    {currentCallIndex === null && (
+                    {!isCalling && (
                         <button
                             onClick={initiateCall}
                             className="group relative w-full py-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-2xl text-sm font-semibold hover:bg-black dark:hover:bg-white transition-all overflow-hidden shadow-2xl shadow-zinc-200 dark:shadow-none"
@@ -1349,7 +1372,7 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
                         </div>
                     )}
 
-                    {currentCallIndex === null && (
+                    {!isCalling && (
                         <div className="flex flex-col items-center text-center space-y-2">
                             <p className="text-sm text-zinc-600 dark:text-zinc-200 font-medium tracking-tight">
                                 Everything look correct?
@@ -1365,6 +1388,7 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
     );
 }
 
+
 export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated }: MainContentProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
@@ -1372,9 +1396,17 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
     const [isLoadingTask, setIsLoadingTask] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const [exampleIndex, setExampleIndex] = useState(0);
     const [taskId, setTaskId] = useState<string | null>(currentTaskId);
     const [userProfile, setUserProfile] = useState<DbUser | null>(null);
+    const [exampleIndex, setExampleIndex] = useState(0);
+
+    // Rotate examples
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setExampleIndex((prev) => (prev + 1) % EXAMPLES.length);
+        }, 4000);
+        return () => clearInterval(interval);
+    }, []);
 
     // Fetch user profile on mount
     useEffect(() => {
@@ -1427,13 +1459,6 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
     useEffect(() => {
         scrollToBottom();
     }, [messages, loading]);
-
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setExampleIndex((prev) => (prev + 1) % EXAMPLES.length);
-        }, 3000);
-        return () => clearInterval(timer);
-    }, []);
 
     const handleSubmit = async (e?: React.FormEvent, overrideInput?: string) => {
         e?.preventDefault();
@@ -1550,7 +1575,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
 
     return (
         <motion.main
-            className="relative flex-1 h-screen w-full flex flex-col bg-zinc-50 dark:bg-black transition-colors duration-300 overflow-hidden"
+            className="relative flex-1 h-screen w-full flex flex-col bg-background transition-colors duration-300 overflow-hidden"
         >
             <div
                 ref={scrollRef}
@@ -1562,7 +1587,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-x-0 h-full flex flex-col items-center justify-center p-8 z-0 pointer-events-none"
+                            className="absolute inset-x-0 h-full flex flex-col items-center justify-center p-8 z-0"
                         >
                             <motion.div
                                 animate={{
@@ -1570,43 +1595,46 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                                     paddingRight: rightOpen ? "320px" : "0px",
                                 }}
                                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                                className="flex flex-col items-center justify-center w-full px-4"
+                                className="flex flex-col items-center justify-center w-full max-w-6xl mx-auto px-4"
                             >
-                                <motion.div
-                                    initial={{ y: -20, opacity: 0 }}
-                                    animate={{ y: 0, opacity: 1 }}
-                                    transition={{ duration: 0.8 }}
-                                    className="w-24 h-24 md:w-32 md:h-32 relative mb-8"
-                                >
-                                    <Image
-                                        src="/logo/logo-full-black.png"
-                                        alt="Handl Logo"
-                                        fill
-                                        className="object-contain dark:hidden"
-                                        priority
-                                    />
-                                    <Image
-                                        src="/logo/logo-full-white.png"
-                                        alt="Handl Logo"
-                                        fill
-                                        className="object-contain hidden dark:block"
-                                        priority
-                                    />
-                                </motion.div>
+                                <div className="text-center space-y-10 max-w-4xl w-full">
+                                    <h1 className="text-2xl md:text-5xl font-bold tracking-tight text-foreground font-sans flex flex-wrap items-end justify-center gap-x-4 md:gap-x-6">
+                                        <span>What shall we</span>
+                                        <span className="relative inline-block w-24 h-12 md:w-40 md:h-16 py-2">
+                                            <Image
+                                                src="/logo/logo-full.png"
+                                                alt="Handl"
+                                                fill
+                                                className="object-contain dark:hidden"
+                                                priority
+                                            />
+                                            <Image
+                                                src="/logo/logo-full-white.png"
+                                                alt="Handl"
+                                                fill
+                                                className="object-contain hidden dark:block"
+                                                priority
+                                            />
+                                        </span>
+                                        <span>today?</span>
+                                    </h1>
 
-                                <div className="h-20 relative w-full mb-4 overflow-hidden flex items-center justify-center">
-                                    <AnimatePresence mode="wait">
-                                        <motion.div
-                                            key={exampleIndex}
-                                            initial={{ y: 20, opacity: 0, filter: "blur(4px)" }}
-                                            animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                                            exit={{ y: -20, opacity: 0, filter: "blur(4px)" }}
-                                            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                                            className="absolute w-full max-w-4xl text-center text-lg md:text-xl text-zinc-400 dark:text-zinc-600 font-light tracking-wide px-4"
-                                        >
-                                            {EXAMPLES[exampleIndex]}
-                                        </motion.div>
-                                    </AnimatePresence>
+                                    <div className="h-24 relative w-full overflow-hidden flex items-center justify-center">
+                                        <AnimatePresence mode="wait">
+                                            <motion.button
+                                                key={exampleIndex}
+                                                initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
+                                                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                                                exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
+                                                transition={{ duration: 0.8, ease: "easeInOut" }}
+                                                onClick={() => handleSubmit(undefined, EXAMPLES[exampleIndex])}
+                                                className="text-muted-foreground text-xl md:text-2xl font-light hover:text-handl-accent transition-colors cursor-pointer text-center px-4"
+                                            >
+                                                {EXAMPLES[exampleIndex]}
+                                            </motion.button>
+                                        </AnimatePresence>
+                                    </div>
+
                                 </div>
                             </motion.div>
                         </motion.div>
@@ -1630,25 +1658,34 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                                 className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                             >
                                 <div
-                                    className={`max-w-[80%] rounded-2xl p-4 md:p-6 ${msg.role === "user"
-                                        ? "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 backdrop-blur-sm"
-                                        : "bg-transparent w-full"
+                                    className={`max-w-[85%] ${msg.role === "user"
+                                        ? "bg-muted p-4 md:p-5 rounded-3xl rounded-tr-sm text-foreground shadow-editorial-sm border border-border/50"
+                                        : "w-full"
                                         }`}
                                 >
                                     {msg.role === "assistant" ? (
-                                        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 md:p-8 shadow-sm">
+                                        <div className="bg-card border border-border rounded-[2.5rem] p-6 md:p-10 shadow-editorial overflow-hidden relative">
+                                            {/* Accent line for assistant messages */}
+                                            <div className="absolute top-0 left-0 w-2 h-full bg-handl-accent/20" />
                                             {/* Conversation response - just show the reply */}
                                             {typeof msg.content !== "string" && msg.content.responseType === "conversation" ? (
-                                                <div className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-base">
+                                                <div className="text-foreground leading-relaxed text-lg font-light">
                                                     {msg.content.reply}
                                                 </div>
                                             ) : typeof msg.content !== "string" && !msg.content.hasAllRequiredInfo ? (
                                                 /* If incomplete, show technical analysis and forms */
                                                 <>
-                                                    <h3 className="text-sm uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-6 font-medium flex items-center gap-2">
-                                                        <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                                                        Required Information
-                                                    </h3>
+                                                    <div className="flex items-center gap-3 mb-8">
+                                                        <div className="w-10 h-10 rounded-2xl bg-handl-accent/10 flex items-center justify-center">
+                                                            <Sparkles className="w-5 h-5 text-handl-accent" />
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-bold">
+                                                                System Update
+                                                            </h3>
+                                                            <p className="text-sm text-foreground font-medium">Information Required</p>
+                                                        </div>
+                                                    </div>
 
                                                     <AnalysisFormGroup
                                                         missingInfo={msg.content.missingInfo}
@@ -1675,13 +1712,13 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                                                 <TaskSummary analysis={msg.content} showCallButton={true} taskId={taskId} />
                                             ) : (
                                                 /* Fallback for strings / errors */
-                                                <div className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                                                <div className="text-foreground leading-relaxed font-light text-lg">
                                                     {typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}
                                                 </div>
                                             )}
                                         </div>
                                     ) : (
-                                        <div className="text-lg md:text-xl font-light tracking-tight px-2">
+                                        <div className="text-lg font-light tracking-tight px-1">
                                             {typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content)}
                                         </div>
                                     )}
@@ -1691,14 +1728,32 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
 
                         {loading && (
                             <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="flex justify-start w-full px-4 md:px-8"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="flex justify-start w-full px-4 md:px-10"
                             >
-                                <div className="bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-4 flex items-center gap-2 text-zinc-400">
-                                    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                    <div className="w-2 h-2 bg-current rounded-full animate-bounce" />
+                                <div className="bg-muted rounded-full px-6 py-4 flex items-center gap-4 border border-border/50 shadow-editorial-sm">
+                                    <div className="flex gap-1.5">
+                                        {[0, 1, 2].map((i) => (
+                                            <motion.div
+                                                key={i}
+                                                animate={{
+                                                    scale: [1, 1.2, 1],
+                                                    opacity: [0.3, 1, 0.3],
+                                                }}
+                                                transition={{
+                                                    duration: 1.5,
+                                                    repeat: Infinity,
+                                                    delay: i * 0.2,
+                                                    ease: "easeInOut",
+                                                }}
+                                                className="w-2 h-2 bg-handl-accent rounded-full"
+                                            />
+                                        ))}
+                                    </div>
+                                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                                        Analyzing Task
+                                    </span>
                                 </div>
                             </motion.div>
                         )}
@@ -1713,15 +1768,15 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                     paddingRight: rightOpen ? "320px" : "0px",
                 }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="w-full p-4 md:p-6 z-20 pb-8 pt-4 bg-gradient-to-t from-zinc-50 dark:from-black via-zinc-50 dark:via-black to-transparent"
+                className="w-full p-4 md:p-10 z-20 pb-12 pt-4 bg-gradient-to-t from-background via-background to-transparent"
             >
-                <div className="relative flex items-center w-full max-w-4xl mx-auto bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 focus-within:ring-2 focus-within:ring-zinc-100 dark:focus-within:ring-zinc-800 transition-all shadow-lg shadow-zinc-200/50 dark:shadow-none">
+                <div className="relative flex items-center w-full max-w-4xl mx-auto bg-card rounded-[2.5rem] border border-border focus-within:border-handl-accent/50 focus-within:ring-4 focus-within:ring-handl-accent/5 transition-all shadow-editorial">
                     <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="What's the task?"
-                        className="flex-1 bg-transparent border-0 focus:ring-0 resize-none py-4 pl-6 pr-14 min-h-[60px] max-h-[200px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 text-lg font-light leading-relaxed scrollbar-hide focus:outline-none"
+                        placeholder="What should Handl handle for you?"
+                        className="flex-1 bg-transparent border-0 focus:ring-0 resize-none py-6 pl-8 pr-16 min-h-[72px] max-h-[200px] text-foreground placeholder:text-muted-foreground text-lg font-light leading-relaxed scrollbar-hide focus:outline-none"
                         rows={1}
                     />
                     <motion.button
@@ -1729,7 +1784,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleSubmit()}
                         disabled={!input.trim() || loading}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-3 bg-foreground text-background rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
                     >
                         {loading ? (
                             <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />

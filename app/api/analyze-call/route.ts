@@ -27,14 +27,14 @@ Your job is to distill each transcript into the single most useful outcome summa
 The assistant was calling about: ${JSON.stringify(currentTaskInfo)}
 
 # OBJECTIVES
-1. **Summary**: Narrate the concrete outcome from the user's perspective. Include the who/what/when details the user needs (booking slots, quoted price, requirements, next steps). Do not mention "the AI" or describe analysis process.
+1. **Summary**: Narrate the outcome from the perspective of a friend who called on behalf of the user. Summarize the whole conversation. Include the who/what/when details the user needs (booking slots, quoted price, requirements, next steps). Do not mention "the AI" or describe analysis process.
 2. **Price**: Return a numeric price/price range if explicitly stated, otherwise null.
 3. **Missing Info**: Capture any information the business still needs from the user before progress can continue.
-4. **Insights**: Provide 1-3 short, imperative bullet-quality strings (≤ 18 words each) highlighting leverage for the next call (e.g., "Use $85 quote to negotiate lower price" or "Mention Tuesday 3 PM slot is held until noon"). Keep them punchy and action-oriented.
+4. **Insights**: Provide imperative bullet-quality strings. Keep them punchy and action-oriented.
 
 # RESPONSE FORMAT (JSON)
 {
-  "summary": "Two-sentence narrative (<=60 words) covering result, timing/pricing, and next required action—no mention of AI",
+  "summary": "clear summarization of the conversation",
   "price": "number | string | null",
   "hasNewQuestions": boolean,
   "newQuestions": [

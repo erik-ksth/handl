@@ -1,0 +1,8 @@
+{
+    "currentTaskInfo": {
+        "service": "Kitchen Faucet Repair",
+        "location": "Oakland",
+        "details": "Leaky single-handle Moen faucet in the kitchen. Needs repair as soon as possible."
+    },
+    "transcript": "Assistant: Hi, I'm calling to get a quote for a leaky kitchen faucet repair in Oakland.\nPlumber: Hi. Is it a single handle or a double handle faucet?\nAssistant: It's a single handle Moen faucet.\nPlumber: Okay, for a standard Moen repair or replacement, we usually charge between $150 and $250. It depends on if we just need to replace the cartridge or if the whole unit is corroded and needs replacing.\nAssistant: I see. When is your earliest availability?\nPlumber: I have a technician in Oakland tomorrow. I can give you a window between 1 PM and 5 PM on Wednesday.\nAssistant: Okay, $150 to $250 tomorrow afternoon. Is there anything else you need to know before coming out?\nPlumber: Yes, please check if the shut-off valves under the sink are actually turning and stopping the water. If they're frozen, I'll need to shut off the main, which takes a bit more time.\nAssistant: Got it. I'll check that. Thank you.\nPlumber: No problem. Give us a call back if you want to book that slot."
+}

@@ -351,10 +351,10 @@ export async function POST(request: NextRequest) {
                     // voiceId: "W8eNcxOi6okJoM7DVevi", // Thomas Grey
                     stability: 0.1,   // More dynamic, less robotic
                 },
-                
+
                 // Background sound (makes it sound more like real call)
                 backgroundSound: "office",
-                
+
                 // End call phrases (so AI knows when to hang up)
                 endCallPhrases: [
                     "goodbye",
@@ -366,11 +366,16 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ call });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Vapi API error:", error);
+
+        // Extract the specific error message from Vapi if available
+        const status = error.statusCode || 500;
+        const message = error.body?.message || error.message || "Failed to create call";
+
         return NextResponse.json(
-            { error: "Failed to create call" },
-            { status: 500 }
+            { error: message },
+            { status }
         );
     }
 }
@@ -401,11 +406,13 @@ export async function GET(request: NextRequest) {
             endedReason: call.endedReason,
             cost: call.cost,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Vapi API error:", error);
+        const status = error.statusCode || 500;
+        const message = error.body?.message || error.message || "Failed to fetch call details";
         return NextResponse.json(
-            { error: "Failed to fetch call details" },
-            { status: 500 }
+            { error: message },
+            { status }
         );
     }
 }
