@@ -348,8 +348,17 @@ export async function POST(request: NextRequest) {
                 },
                 voice: {
                     provider: "11labs",
-                    voiceId: "VQWIG7jHNSEv826utbm8", // Mike Henry
-                    // voiceId: "W8eNcxOi6okJoM7DVevi", // Thomas Grey
+                    voiceId: (() => {
+                        const voiceIds = [
+                            "VQWIG7jHNSEv826utbm8", // Mike Henry
+                            "zZp9y0VzL7J3DmI1Z0U6", // Gioele Meditteraneo
+                            "suMMgpGbVcnihP1CcgFS", // Emily - Young Irish Lady
+                            "2zRM7PkgwBPiau2jvVXc", // Monika Sogam
+                            "O7RnF5aNrnDdDZdG7kki", // Isaiah
+                            "9T9vSqRrPPxIs5wpyZfK", // Eric B
+                        ];
+                        return voiceIds[Math.floor(Math.random() * voiceIds.length)];
+                    })(),
                     stability: 0.1,   // More dynamic, less robotic
                 },
 
