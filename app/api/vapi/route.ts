@@ -62,6 +62,7 @@ ${questionsToAsk.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 ${serviceDetails ? `- Details: ${serviceDetails}` : ''}
 ${budget ? `- Budget: ${budget}` : ''}
 ${timeConstraint ? `- Timeline: ${timeConstraint}` : ''}
+${callbackNumber ? `- Callback number (provide when asked): ${callbackNumber}` : ''}
 
 # CONVERSATION RULES
 
@@ -240,7 +241,7 @@ Robotic phrases to AVOID:
 You CANNOT:
 - Make appointments or commitments without user's consent
 - Promise ${userName} will buy anything
-- Share ${userName}'s personal info (beyond name if asked)
+- Share ${userName}'s personal info (beyond name and callback number if asked)
 - Negotiate beyond asking once or twice about price
 - Make decisions on their behalf
 
