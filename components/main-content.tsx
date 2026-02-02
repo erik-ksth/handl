@@ -865,7 +865,7 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
                                         key={i}
                                         animate={{ height: [8, 16, 8] }}
                                         transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
-                                        className="w-1.5 bg-handl-accent rounded-full"
+                                        className="w-1.5 bg-green-500 rounded-full"
                                     />
                                 ))}
                             </div>
@@ -940,12 +940,12 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
                     <div className="flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Primary Outcome</span>
                             </div>
                             {analysis.price && (
-                                <div className="px-3 py-1 bg-handl-accent/10 border border-handl-accent/20 rounded-lg">
-                                    <span className="text-sm font-bold text-handl-accent">${analysis.price}</span>
+                                <div className="px-3 py-1 bg-handl-accent/10 border border-handl-accent/30 rounded-lg">
+                                    <span className="text-sm font-bold text-handl-accent-foreground dark:text-handl-accent">${analysis.price}</span>
                                 </div>
                             )}
                         </div>
@@ -958,9 +958,9 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
                     {analysis.insights && (
                         <div className="flex flex-col gap-4 relative">
                             <div className="absolute -left-4 top-0 bottom-0 w-1 bg-handl-accent/10 rounded-full" />
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Negotiation Leverage</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Insights</span>
                             <p className="text-base text-muted-foreground italic font-light leading-relaxed pl-2">
-                                "{analysis.insights}"
+                                {analysis.insights}
                             </p>
                         </div>
                     )}
