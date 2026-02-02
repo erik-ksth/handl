@@ -39,7 +39,7 @@ export function AuthButton() {
 
     const handleSignOut = async () => {
         await supabase.auth.signOut();
-        window.location.reload();
+        window.location.href = "/";
     };
 
     if (loading) {

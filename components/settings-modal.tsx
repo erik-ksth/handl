@@ -1,7 +1,8 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, Phone, Save, Loader2 } from "lucide-react";
+import { X, User, Phone, Save, Loader2, LogOut } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import { getCurrentUser, updateUser } from "@/utils/db";
 import type { User as DbUser } from "@/types/database";
@@ -81,6 +82,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleSignOut = async () => {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        onClose();
+        window.location.href = "/";
     };
 
     return (
@@ -190,14 +198,25 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         </div>
                                     )}
 
-                                    <div className="flex justify-end pt-4">
+                                    <div className="pt-4">
                                         <button
                                             type="submit"
                                             disabled={saving || loading}
-                                            className="flex items-center gap-2 px-8 py-3 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-zinc-200 dark:shadow-none"
+                                            className="flex items-center justify-center gap-2 w-full py-3 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-zinc-200 dark:shadow-none"
                                         >
                                             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                             Save Changes
+                                        </button>
+                                    </div>
+
+                                    <div className="pt-6 mt-6 border-t border-zinc-200 dark:border-zinc-800">
+                                        <button
+                                            type="button"
+                                            onClick={handleSignOut}
+                                            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-red-500/20 bg-red-500/10 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 dark:hover:text-white transition-all"
+                                        >
+                                            <LogOut className="w-4 h-4" />
+                                            Log out
                                         </button>
                                     </div>
                                 </form>

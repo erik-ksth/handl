@@ -577,31 +577,6 @@ export function LeftDrawer({ isOpen, onToggle, currentTaskId, onSelectTask, onNe
       {/* 4. Footer: Settings, Theme, Auth */}
       <div className={`mt-auto w-full flex flex-col gap-2 ${isOpen ? "border-t border-border/40 pt-4" : ""}`}>
 
-        {/* Settings Button */}
-        <button
-          onClick={onOpenSettings}
-          className={`flex items-center gap-0 w-full p-[5px] rounded-xl transition-all duration-200 group relative hover:bg-muted text-muted-foreground hover:text-foreground`}
-        >
-          {/* Fixed Icon Column */}
-          <div style={{ width: INNER_ICON_COLUMN_WIDTH }} className="flex-shrink-0 flex items-center justify-center h-8">
-            <Settings className={`w-5 h-5`} />
-          </div>
-
-          <AnimatePresence>
-            {isOpen && (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 text-left font-medium whitespace-nowrap overflow-hidden text-sm pl-3"
-              >
-                Settings
-              </motion.span>
-            )}
-          </AnimatePresence>
-          {!isOpen && <span className="absolute left-16 bg-foreground text-background text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-[60] pointer-events-none">Settings</span>}
-        </button>
-
         {/* Theme Button */}
         {mounted && (
           <button
@@ -628,6 +603,31 @@ export function LeftDrawer({ isOpen, onToggle, currentTaskId, onSelectTask, onNe
             {!isOpen && <span className="absolute left-16 bg-foreground text-background text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-[60] pointer-events-none">Theme</span>}
           </button>
         )}
+
+        {/* Settings Button */}
+        <button
+          onClick={onOpenSettings}
+          className={`flex items-center gap-0 w-full p-[5px] rounded-xl transition-all duration-200 group relative hover:bg-muted text-muted-foreground hover:text-foreground`}
+        >
+          {/* Fixed Icon Column */}
+          <div style={{ width: INNER_ICON_COLUMN_WIDTH }} className="flex-shrink-0 flex items-center justify-center h-8">
+            <Settings className={`w-5 h-5`} />
+          </div>
+
+          <AnimatePresence>
+            {isOpen && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex-1 text-left font-medium whitespace-nowrap overflow-hidden text-sm pl-3"
+              >
+                Settings
+              </motion.span>
+            )}
+          </AnimatePresence>
+          {!isOpen && <span className="absolute left-16 bg-foreground text-background text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-[60] pointer-events-none">Settings</span>}
+        </button>
 
         {/* Auth Profile */}
         <div className="mt-1 w-full">
