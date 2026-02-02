@@ -1747,7 +1747,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                                                     delay: i * 0.2,
                                                     ease: "easeInOut",
                                                 }}
-                                                className="w-2 h-2 bg-handl-accent rounded-full"
+                                                className="w-2 h-2 bg-muted-foreground rounded-full"
                                             />
                                         ))}
                                     </div>
