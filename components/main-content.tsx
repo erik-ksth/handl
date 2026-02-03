@@ -959,9 +959,14 @@ function CallResultsDisplay({ callState, label, analysis }: { callState: CallSta
                         <div className="flex flex-col gap-4 relative">
                             <div className="absolute -left-4 top-0 bottom-0 w-1 bg-handl-accent/10 rounded-full" />
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Insights</span>
-                            <p className="text-base text-muted-foreground italic font-light leading-relaxed pl-2">
-                                {analysis.insights}
-                            </p>
+                            <ul className="space-y-2 pl-2">
+                                {(Array.isArray(analysis.insights) ? analysis.insights : [analysis.insights]).map((insight: string, i: number) => (
+                                    <li key={i} className="text-base text-muted-foreground font-light leading-relaxed flex items-start gap-2">
+                                        <span className="text-handl-accent">●</span>
+                                        <span>{insight}</span>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     )}
                 </div>
