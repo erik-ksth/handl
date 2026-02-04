@@ -1094,9 +1094,6 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
     };
 
     const pollCallStatus = useCallback(async (callId: string, phoneNum: string) => {
-        const maxAttempts = 60;
-        let attempts = 0;
-
         const poll = async () => {
             try {
                 const response = await fetch(`/api/vapi?callId=${callId}`);
@@ -1182,12 +1179,8 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
                     setCallStates(prev => ({ ...prev, [phoneNum]: { status: "in-progress", callId } }));
                 }
 
-                attempts++;
-                if (attempts < maxAttempts) {
-                    setTimeout(poll, 5000);
-                } else {
-                    setCallStates(prev => ({ ...prev, [phoneNum]: { status: "failed", error: "Call timed out" } }));
-                }
+                // Poll again after 5 seconds - no max attempts limit
+                setTimeout(poll, 5000);
             } catch (error) {
                 setCallStates(prev => ({ ...prev, [phoneNum]: { status: "failed", error: "Failed to check call status" } }));
             }
