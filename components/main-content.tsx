@@ -1093,6 +1093,13 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
         }
     };
 
+    const currentCallIndexRef = useRef<number | null>(null);
+    
+    // Keep ref in sync with state
+    useEffect(() => {
+        currentCallIndexRef.current = currentCallIndex;
+    }, [currentCallIndex]);
+
     const pollCallStatus = useCallback(async (callId: string, phoneNum: string) => {
         const poll = async () => {
             try {
@@ -1168,9 +1175,11 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
                         }
                     }
 
-                    if (!analysisOutcome.paused && currentCallIndex !== null && currentCallIndex < phoneNumbers.length - 1) {
+                    // Use ref to get latest index value to avoid stale closure
+                    const latestIndex = currentCallIndexRef.current;
+                    if (!analysisOutcome.paused && latestIndex !== null && latestIndex < phoneNumbers.length - 1) {
                         // Automatically move to next if not paused
-                        startCallAtIndex(currentCallIndex + 1);
+                        startCallAtIndex(latestIndex + 1);
                     }
                     return;
                 }
@@ -1187,7 +1196,7 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
         };
 
         poll();
-    }, [taskId, currentCallIndex, phoneNumbers, extractedInfo]);
+    }, [taskId, phoneNumbers]);
 
     const startCallAtIndex = async (index: number, currentAnalysis = analysis) => {
         if (index >= phoneNumbers.length) return;
