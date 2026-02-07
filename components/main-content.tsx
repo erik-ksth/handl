@@ -258,6 +258,7 @@ function PhoneNumberCollector({
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
     const [searchResults, setSearchResults] = useState<BusinessResult[]>([]);
+    const [placeCount, setPlaceCount] = useState(requestedCount);
     const [selectedBusinesses, setSelectedBusinesses] = useState<Set<string>>(new Set());
     const [searchError, setSearchError] = useState<string | null>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -460,7 +461,7 @@ function PhoneNumberCollector({
             const params = new URLSearchParams({
                 query: serviceName || 'business',
                 location: locationInput,
-                limit: requestedCount.toString(),
+                limit: placeCount.toString(),
                 ...(preferredCriteria && { preferredCriteria }),
             });
 
@@ -546,12 +547,25 @@ function PhoneNumberCollector({
                             <h5 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                                 Where should we search?
                             </h5>
-                            <button
-                                onClick={() => setShowLocationPicker(false)}
-                                className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                            >
-                                Cancel
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-zinc-500">Find:</span>
+                                <select
+                                    value={placeCount}
+                                    onChange={(e) => setPlaceCount(parseInt(e.target.value))}
+                                    className="text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
+                                >
+                                    <option value={3}>3 places</option>
+                                    <option value={5}>5 places</option>
+                                    <option value={10}>10 places</option>
+                                    <option value={15}>15 places</option>
+                                </select>
+                                <button
+                                    onClick={() => setShowLocationPicker(false)}
+                                    className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 ml-2"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
 
                         <div className="flex gap-2">
