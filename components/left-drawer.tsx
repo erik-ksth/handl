@@ -24,6 +24,23 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
 
+// Hook to detect mobile screen size
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 import { getTaskSummaries, updateTask, deleteTask, type TaskSummary } from "@/utils/db";
 
 interface LeftDrawerProps {
@@ -33,6 +50,7 @@ interface LeftDrawerProps {
   onSelectTask: (taskId: string | null) => void;
   onNewTask: () => void;
   onOpenSettings: () => void;
+  isMobile?: boolean;
 }
 
 // Layout Constants
@@ -356,7 +374,7 @@ function SidebarAuth({ isOpen }: { isOpen: boolean }) {
 }
 
 
-export function LeftDrawer({ isOpen, onToggle, currentTaskId, onSelectTask, onNewTask, onOpenSettings }: LeftDrawerProps) {
+export function LeftDrawer({ isOpen, onToggle, currentTaskId, onSelectTask, onNewTask, onOpenSettings, isMobile = false }: LeftDrawerProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
@@ -410,22 +428,56 @@ export function LeftDrawer({ isOpen, onToggle, currentTaskId, onSelectTask, onNe
   const groupedTasks = groupTasksByDate(tasks);
   const groupOrder = ["Today", "Yesterday", "This Week", "Older"];
 
-  return (
-    <motion.div
-      initial={false}
-      // Apple-like spring animation
-      animate={{
-        width: isOpen ? 320 : COLLAPSED_WIDTH,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 400,
-        damping: 40,
-        mass: 1
-      }}
-      className={`fixed left-4 top-4 bottom-4 z-50 flex flex-col bg-sidebar-bg border border-border/50 rounded-3xl shadow-2xl overflow-hidden backdrop-blur-xl`}
-      style={{ padding: CONTAINER_PADDING }}
+  // Mobile floating toggle button (visible when sidebar is closed on mobile)
+  const MobileToggleButton = () => (
+    <motion.button
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      onClick={onToggle}
+      className="fixed left-4 top-4 z-[60] flex items-center justify-center w-12 h-12 bg-sidebar-bg border border-border/50 rounded-2xl shadow-lg backdrop-blur-xl hover:bg-muted transition-colors"
     >
+      <PanelLeftOpen className="w-5 h-5 text-muted-foreground" />
+    </motion.button>
+  );
+
+  // Mobile slide-over backdrop
+  const MobileBackdrop = () => (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onToggle}
+      className="fixed inset-0 bg-black/40 z-40 md:hidden"
+    />
+  );
+
+  // If mobile and sidebar is closed, only show the floating toggle button
+  if (isMobile && !isOpen) {
+    return <MobileToggleButton />;
+  }
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      {isMobile && isOpen && <MobileBackdrop />}
+      
+      <motion.div
+        initial={false}
+        // Apple-like spring animation
+        animate={{
+          width: isOpen ? 320 : isMobile ? 0 : COLLAPSED_WIDTH,
+          x: isMobile && !isOpen ? -320 : 0,
+        }}
+        transition={{
+          type: "spring",
+          stiffness: 400,
+          damping: 40,
+          mass: 1
+        }}
+        className={`fixed left-4 top-4 bottom-4 z-50 flex flex-col bg-sidebar-bg border border-border/50 rounded-3xl shadow-2xl overflow-hidden backdrop-blur-xl ${isMobile ? 'md:left-4 left-0 top-0 bottom-0 rounded-none md:rounded-3xl w-[280px]' : ''}`}
+        style={{ padding: CONTAINER_PADDING }}
+      >
       {/* 1. Header: Logo: Logo (Expanded) vs Toggle (Collapsed) */}
       <div className={`flex items-center w-full mb-4 flex-shrink-0 h-9 relative`}>
         <AnimatePresence mode="popLayout" initial={false}>
@@ -636,5 +688,6 @@ export function LeftDrawer({ isOpen, onToggle, currentTaskId, onSelectTask, onNe
       </div>
 
     </motion.div>
+    </>
   );
 }

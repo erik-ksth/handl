@@ -10,6 +10,23 @@ import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { toE164 } from "@/utils/phone-format";
 
+// Hook to detect mobile screen size
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 interface AnalysisResult {
     responseType?: "task_update" | "conversation";
     reply?: string;
@@ -1411,6 +1428,7 @@ function TaskSummary({ analysis: initialAnalysis, showCallButton = true, taskId 
 
 
 export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated }: MainContentProps) {
+    const isMobile = useIsMobile();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
@@ -1612,7 +1630,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
                         >
                             <motion.div
                                 animate={{
-                                    paddingLeft: leftOpen ? "360px" : "100px",
+                                    paddingLeft: isMobile ? (leftOpen ? "0px" : "0px") : (leftOpen ? "360px" : "100px"),
                                     paddingRight: rightOpen ? "320px" : "0px",
                                 }}
                                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
@@ -1664,7 +1682,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
 
                 <motion.div
                     animate={{
-                        paddingLeft: leftOpen ? "360px" : "100px",
+                        paddingLeft: isMobile ? "0px" : (leftOpen ? "360px" : "100px"),
                         paddingRight: rightOpen ? "320px" : "0px",
                     }}
                     transition={{ type: "spring", damping: 25, stiffness: 200 }}
@@ -1785,7 +1803,7 @@ export function MainContent({ leftOpen, rightOpen, currentTaskId, onTaskCreated 
 
             <motion.div
                 animate={{
-                    paddingLeft: leftOpen ? "360px" : "100px",
+                    paddingLeft: isMobile ? "0px" : (leftOpen ? "360px" : "100px"),
                     paddingRight: rightOpen ? "320px" : "0px",
                 }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
